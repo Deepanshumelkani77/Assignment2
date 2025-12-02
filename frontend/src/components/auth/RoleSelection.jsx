@@ -44,7 +44,7 @@ const RoleSelection = () => {
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-center gap-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            <div className="w-16 h-16 bg-[#011099] rounded-full flex items-center justify-center text-white text-2xl font-bold">
               ESB
             </div>
             <div className="text-center">
