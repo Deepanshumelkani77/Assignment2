@@ -40,13 +40,15 @@ const LoginForm = () => {
           // Store token in localStorage
           localStorage.setItem('token', 'demo-jwt-token');
           localStorage.setItem('role', 'admin');
-          navigate('/dashboard');
+          localStorage.setItem('userName', 'Admin User');
+          navigate('/admin/dashboard');
         } else {
           // For demo, any other credentials will work as employee
           localStorage.setItem('token', 'demo-employee-token');
           localStorage.setItem('role', 'employee');
+          localStorage.setItem('userName', formData.email.split('@')[0] || 'Employee');
           localStorage.setItem('userId', 'emp-' + Math.random().toString(36).substr(2, 9));
-          navigate('/dashboard');
+          navigate('/employee/dashboard');
         }
       } else {
         // Handle signup logic here
