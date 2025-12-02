@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
@@ -30,33 +31,125 @@ const createSendToken = (user, statusCode, res) => {
 // @desc    Register a new user
 // @route   POST /api/v1/auth/register
 // @access  Public
-exports.register = async (req, res, next) => {
-  try {
-    const { name, email, password, role, employeeCode, department } = req.body;
+exports.register = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { employeeCode }] });
+  try {
+    console.log('Registration request body:', req.body);
+    const { name, email, password, role = 'employee', employeeCode, department } = req.body;
+
+    // Basic validation
+    if (!name || !email || !password) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please provide name, email, and password'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email already in use'
+      });
+    }
+
+    // Handle employee-specific validations
+    if (role === 'employee') {
+      if (!employeeCode || !department) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          status: 'error',
+          message: 'Employee code and department are required'
+        });
+      }
+
+      // Check if employee code is already taken
+      const existingEmployee = await User.findOne({ employeeCode }).session(session);
+      if (existingEmployee) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          status: 'error',
+          message: 'Employee code already in use'
+        });
+      }
+    }
+
+    // Create user data object
+    const userData = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      role
+    };
+
+    // Only add employee-specific fields for employee role
+    if (role === 'employee') {
+      userData.employeeCode = employeeCode.trim();
+      userData.department = department.trim();
+    }
+
+    // Create the user
+    const newUser = new User(userData);
+    await newUser.save({ session });
+    
+    // Commit the transaction
+    await session.commitTransaction();
+    await session.endSession();
+
+    // Remove password from output
+    newUser.password = undefined;
+
+    // Send response with token
+    createSendToken(newUser, 201, res);
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    
+    console.error('Registration error:', error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
       return res.status(400).json({
         status: 'error',
         message: 'User with this email or employee code already exists'
       });
     }
-
-    // Create new user
-    const newUser = await User.create({
-      name,
-      email,
-      password,
-      role: role || 'employee',
-      ...(role === 'employee' && { employeeCode, department })
-    });
-
-    createSendToken(newUser, 201, res);
-  } catch (error) {
-    res.status(400).json({
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        status: 'error',
+        message: `Validation error: ${messages.join(', ')}`
+      });
+    }
+    
+    // Handle other errors
+    res.status(500).json({
       status: 'error',
-      message: error.message
+      message: 'An error occurred during registration. Please try again.'
     });
   }
 };

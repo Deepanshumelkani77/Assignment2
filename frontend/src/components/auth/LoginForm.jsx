@@ -26,31 +26,81 @@ const LoginForm = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const validateForm = () => {
+    const { name, email, password, employeeCode, department } = formData;
     
     if (isLogin) {
-      // Handle login
-      const { email, password } = formData;
-      await login({ email, password });
-    } else {
-      // Handle registration
-      const { name, email, password, employeeCode, department } = formData;
-      const result = await register(
-        { name, email, password, employeeCode, department },
-        isAdmin ? 'admin' : 'employee'
-      );
-      
-      if (result.success) {
-        // Reset form after successful registration
-        setFormData({
-          name: '',
-          email: '',
-          password: '',
-          employeeCode: '',
-          department: ''
-        });
+      if (!email || !password) {
+        setError('Please fill in all required fields');
+        return false;
       }
+    } else {
+      // Registration validation
+      if (!name || !email || !password) {
+        setError('Please fill in all required fields');
+        return false;
+      }
+      
+      if (!isAdmin && (!employeeCode || !department)) {
+        setError('Employee code and department are required');
+        return false;
+      }
+      
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    try {
+      if (isLogin) {
+        // Handle login
+        const { email, password } = formData;
+        await login({ email, password });
+      } else {
+        // Handle registration
+        const { name, email, password, employeeCode, department } = formData;
+        const result = await register(
+          { 
+            name,
+            email,
+            password,
+            employeeCode,
+            department
+          },
+          isAdmin ? 'admin' : 'employee'
+        );
+        
+        if (result.success) {
+          // Show success message and switch to login
+          setError('Registration successful! Please log in.');
+          setIsLogin(true);
+          // Reset form but keep email and password for login
+          setFormData(prev => ({
+            ...prev,
+            name: '',
+            employeeCode: '',
+            department: ''
+          }));
+        } else {
+          setError(result.error || 'Registration failed. Please try again.');
+        }
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'An error occurred. Please try again.';
+      setError(errorMessage);
+      console.error('Form submission error:', err);
     }
   };
 

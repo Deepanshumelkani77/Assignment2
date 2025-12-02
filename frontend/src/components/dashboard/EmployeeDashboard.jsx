@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LogoutButton from '../auth/LogoutButton';
 import { AppContext } from '../../context/AppContext';
@@ -7,17 +7,54 @@ const EmployeeDashboard = () => {
   const [activeTab, setActiveTab] = useState('schedule');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestType, setRequestType] = useState('time-off');
-  const { user } = useContext(AppContext);
+  const [loading, setLoading] = useState(true);
+  const { user, API_URL } = useContext(AppContext);
+  
+  // Initialize state for data
+  const [upcomingShifts, setUpcomingShifts] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
 
-  const pendingRequests = [
-    { id: 1, type: 'Time Off', date: '2023-12-15 to 2023-12-17', status: 'Pending', reason: 'Family vacation' },
-    { id: 2, type: 'Shift Swap', date: '2023-11-25', status: 'Pending', reason: 'Doctor\'s appointment' },
-  ];
-
-  const announcements = [
-    { id: 1, title: 'Team Meeting', date: '2023-06-14', content: 'Monthly team sync at 11 AM in Conference Room A' },
-    { id: 2, title: 'System Maintenance', date: '2023-06-16', content: 'Planned system maintenance from 2 AM to 4 AM' },
-  ];
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // In a real app, you would fetch this from your API
+        // const shiftsRes = await fetch(`${API_URL}/api/v1/employees/${user.id}/shifts`);
+        // const requestsRes = await fetch(`${API_URL}/api/v1/requests`);
+        // const announcementsRes = await fetch(`${API_URL}/api/v1/announcements`);
+        
+        // Mock data for now
+        const mockShifts = [
+          { id: 1, date: '2023-06-15', start: '09:00', end: '17:00', type: 'Regular' },
+          { id: 2, date: '2023-06-16', start: '09:00', end: '17:00', type: 'Regular' },
+          { id: 3, date: '2023-06-17', start: '10:00', end: '14:00', type: 'Weekend' },
+        ];
+        
+        const mockRequests = [
+          { id: 1, type: 'Time Off', date: '2023-12-15 to 2023-12-17', status: 'Pending', reason: 'Family vacation' },
+          { id: 2, type: 'Shift Swap', date: '2023-11-25', status: 'Pending', reason: 'Doctor\'s appointment' },
+        ];
+        
+        const mockAnnouncements = [
+          { id: 1, title: 'Team Meeting', date: '2023-06-14', content: 'Monthly team sync at 11 AM in Conference Room A' },
+          { id: 2, title: 'System Maintenance', date: '2023-06-16', content: 'Planned system maintenance from 2 AM to 4 AM' },
+        ];
+        
+        setUpcomingShifts(mockShifts);
+        setPendingRequests(mockRequests);
+        setAnnouncements(mockAnnouncements);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user) {
+      fetchData();
+    }
+  }, [user, API_URL]);
 
   if (!user) {
     return (

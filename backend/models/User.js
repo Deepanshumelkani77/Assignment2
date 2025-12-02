@@ -28,13 +28,25 @@ const userSchema = new mongoose.Schema({
   },
   employeeCode: {
     type: String,
-    required: [function() { return this.role === 'employee'; }, 'Employee code is required for employees'],
-    unique: true,
-    sparse: true
+    required: [
+      function() { 
+        return this.role === 'employee'; 
+      }, 
+      'Employee code is required for employees'
+    ],
+    unique: this && this.role === 'employee',
+    sparse: true,
+    default: null
   },
   department: {
     type: String,
-    required: [function() { return this.role === 'employee'; }, 'Department is required for employees']
+    required: [
+      function() { 
+        return this.role === 'employee'; 
+      }, 
+      'Department is required for employees'
+    ],
+    default: null
   },
   createdAt: {
     type: Date,
@@ -44,14 +56,25 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  // Only run this function if password was modified
+  if (!this.isModified('password')) {
+    if (typeof next === 'function') {
+      return next();
+    }
+    return;
+  }
   
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
+    if (typeof next === 'function') {
+      return next();
+    }
   } catch (error) {
-    next(error);
+    if (typeof next === 'function') {
+      return next(error);
+    }
+    throw error;
   }
 });
 

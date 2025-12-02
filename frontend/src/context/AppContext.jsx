@@ -13,17 +13,31 @@ const AppContextProvider = ({ children }) => {
 
   // Check if user is logged in on initial load
   useEffect(() => {
+    // First try to get user from localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    }
+    
+    // Then validate with the server
     checkUserLoggedIn();
   }, []);
 
-  // Check if user is logged in
+  // Check if user is logged in with the server
   const checkUserLoggedIn = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/auth/me`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -31,50 +45,96 @@ const AppContextProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setUser(data.data.user);
+        const userData = data.data?.user || data.user;
+        if (userData) {
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } else {
+          // If no user data in response, clear everything
+          console.error('No user data in response');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       } else {
+        console.error('Auth check failed:', await response.text());
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
       }
     } catch (err) {
       console.error('Error checking auth status:', err);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Don't clear user state on network errors to prevent UI flicker
+      // The user can still interact with the app in offline mode
     } finally {
       setLoading(false);
     }
   };
 
   // Register a new user
-  const register = async (userData, role) => {
+  const register = async (userData, role = 'employee') => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Prepare the request body based on role
+      const requestBody = {
+        name: userData.name.trim(),
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        role: role
+      };
+
+      // Add employee-specific fields if role is employee
+      if (role === 'employee') {
+        if (!userData.employeeCode || !userData.department) {
+          throw new Error('Employee code and department are required');
+        }
+        requestBody.employeeCode = userData.employeeCode.trim();
+        requestBody.department = userData.department.trim();
+      }
+
+      console.log('Sending registration request:', requestBody);
       
       const response = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...userData,
-          role: role || 'employee',
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(err => {
+        console.error('Error parsing response:', err);
+        throw new Error('Invalid response from server');
+      });
+
+      console.log('Registration response:', data);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || data.error?.message || 'Registration failed');
       }
 
-      // Return success without auto-login
-      return { success: true };
+      // If we have a token, store it and the user data
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.data?.user || data.user));
+        setUser(data.data?.user || data.user);
+      }
+
+      // Return success with user data
+      return { 
+        success: true,
+        user: data.data?.user
+      };
     } catch (err) {
       console.error('Registration error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+      const errorMessage = err.message || 'Registration failed. Please check your details and try again.';
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
     } finally {
       setLoading(false);
     }
@@ -86,7 +146,7 @@ const AppContextProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,19 +160,33 @@ const AppContextProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Save token and user data
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.data.user));
-      setUser(data.data.user);
-
+      // Handle different response formats
+      const token = data.token || (data.data && data.data.token);
+      const userData = data.user || (data.data && data.data.user);
+      
+      if (!token || !userData) {
+        throw new Error('Invalid response from server');
+      }
+      
+      // Store the token and user data
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      
       // Redirect based on role
-      const redirectPath = data.data.user.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
+      const redirectPath = userData.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
       navigate(redirectPath);
-
-      return { success: true };
-    } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.');
-      return { success: false, error: err.message };
+      
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed. Please try again.');
+      // Clear any partial login state on error
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      throw error;
     } finally {
       setLoading(false);
     }

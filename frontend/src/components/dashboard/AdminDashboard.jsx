@@ -1,18 +1,71 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LogoutButton from '../auth/LogoutButton';
 import { AppContext } from '../../context/AppContext';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { user } = useContext(AppContext);
+  const [employees, setEmployees] = useState([]);
+  const [shifts, setShifts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user, API_URL } = useContext(AppContext);
 
-  // Mock data - in a real app, this would come from an API
+  // Fetch employees and shifts data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // In a real app, you would fetch this from your API
+        // const employeesRes = await fetch(`${API_URL}/api/v1/employees`);
+        // const shiftsRes = await fetch(`${API_URL}/api/v1/shifts`);
+        // const employeesData = await employeesRes.json();
+        // const shiftsData = await shiftsRes.json();
+        
+        // Mock data for now
+        const mockEmployees = [
+          { id: 1, name: 'John Doe', email: 'john@example.com', department: 'Engineering', role: 'employee' },
+          { id: 2, name: 'Jane Smith', email: 'jane@example.com', department: 'HR', role: 'employee' },
+          { id: 3, name: 'Admin User', email: 'admin@example.com', department: 'Admin', role: 'admin' },
+        ];
+        
+        const mockShifts = [
+          { id: 1, employeeId: 1, date: '2023-11-15', shift: 'Morning', status: 'Scheduled' },
+          { id: 2, employeeId: 2, date: '2023-11-15', shift: 'Evening', status: 'Scheduled' },
+        ];
+        
+        setEmployees(mockEmployees);
+        setShifts(mockShifts);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user) {
+      fetchData();
+    }
+  }, [user, API_URL]);
+  
+  // Calculate stats based on the data
   const stats = [
-    { name: 'Total Employees', value: '24', change: '+4.75%', changeType: 'positive' },
-    { name: 'Active Shifts', value: '12', change: '+2.02%', changeType: 'positive' },
-    { name: 'Pending Requests', value: '5', change: '0%', changeType: 'neutral' },
-    { name: 'Upcoming Holidays', value: '2', change: '+1.39%', changeType: 'positive' },
+    { 
+      name: 'Total Employees', 
+      value: employees.length, 
+      change: '+0%', 
+      changeType: 'neutral' 
+    },
+    { 
+      name: 'Active Shifts', 
+      value: shifts.filter(shift => shift.status === 'Scheduled').length,
+      change: '+0%', 
+      changeType: 'neutral' 
+    },
+    { 
+      name: 'Departments', 
+      value: new Set(employees.map(emp => emp.department)).size,
+      change: '0%', 
+      changeType: 'neutral' 
+    },
   ];
 
   const recentShifts = [
