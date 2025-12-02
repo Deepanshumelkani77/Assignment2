@@ -1,23 +1,34 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useContext } from 'react';
+import { AppContext } from '../../context/AppContext';
 
-const ProtectedRoute = ({ requiredRole }) => {
-  const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('role');
+const ProtectedRoute = ({ requiredRole, children }) => {
+  const { isAuthenticated, isAdmin, loading } = useContext(AppContext);
   const location = useLocation();
 
-  if (!token) {
+  if (loading) {
+    // Show loading spinner or skeleton while checking auth status
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     // Redirect to login if not authenticated
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  // If no specific role is required or user has the required role, allow access
-  if (!requiredRole || userRole === requiredRole) {
-    return <Outlet />;
+  // Check if the user has the required role
+  if (requiredRole && ((requiredRole === 'admin' && !isAdmin) || (requiredRole === 'employee' && isAdmin))) {
+    // Redirect to appropriate dashboard if role doesn't match
+    const redirectPath = isAdmin ? '/admin/dashboard' : '/employee/dashboard';
+    return <Navigate to={redirectPath} replace />;
   }
 
-  // Redirect based on user role if they don't have access to the current route
-  const redirectPath = userRole === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
-  return <Navigate to={redirectPath} state={{ from: location }} replace />;
+  // Render the protected content
+  return children;
 };
 
 export default ProtectedRoute;

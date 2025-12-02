@@ -1,68 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useContext } from 'react';
+import { Link } from 'react-router-dom';
+import LogoutButton from '../auth/LogoutButton';
+import { AppContext } from '../../context/AppContext';
 
 const EmployeeDashboard = () => {
-  const [user, setUser] = useState({
-    name: 'John Doe',
-    role: 'Employee',
-    department: 'Engineering',
-    email: 'john.doe@example.com',
-    joinDate: '2023-01-15'
-  });
-  
-  const [upcomingShifts, setUpcomingShifts] = useState([
-    { id: 1, date: '2023-06-15', start: '09:00', end: '17:00', type: 'Regular' },
-    { id: 2, date: '2023-06-16', start: '13:00', end: '21:00', type: 'Evening' },
-    { id: 3, date: '2023-06-17', start: 'Off', end: 'Off', type: 'Day Off' },
-  ]);
+  const [activeTab, setActiveTab] = useState('schedule');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestType, setRequestType] = useState('time-off');
+  const { user } = useContext(AppContext);
 
-  const [announcements] = useState([
+  const pendingRequests = [
+    { id: 1, type: 'Time Off', date: '2023-12-15 to 2023-12-17', status: 'Pending', reason: 'Family vacation' },
+    { id: 2, type: 'Shift Swap', date: '2023-11-25', status: 'Pending', reason: 'Doctor\'s appointment' },
+  ];
+
+  const announcements = [
     { id: 1, title: 'Team Meeting', date: '2023-06-14', content: 'Monthly team sync at 11 AM in Conference Room A' },
     { id: 2, title: 'System Maintenance', date: '2023-06-16', content: 'Planned system maintenance from 2 AM to 4 AM' },
-  ]);
+  ];
 
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // In a real app, fetch employee data here
-    const userName = localStorage.getItem('userName') || 'Employee';
-    setUser(prev => ({
-      ...prev,
-      name: userName,
-      role: localStorage.getItem('role') || 'Employee'
-    }));
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    navigate('/');
-  };
-
-  const formatDate = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
-  };
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-900">Employee Dashboard</h1>
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-[#041296] rounded-lg flex items-center justify-center text-white font-bold">
-              ESB
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{user.name}</p>
+              <p className="text-xs text-gray-500">Employee</p>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Employee Dashboard</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              Logout
-            </button>
+            <LogoutButton />
           </div>
         </div>
       </header>

@@ -1,56 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useContext } from 'react';
+import { Link } from 'react-router-dom';
+import LogoutButton from '../auth/LogoutButton';
+import { AppContext } from '../../context/AppContext';
 
 const AdminDashboard = () => {
-  const [user, setUser] = useState({
-    name: 'Admin User',
-    role: 'Admin',
-    email: 'admin@example.com',
-  });
-  
-  const [employees, setEmployees] = useState([
-    { id: 1, name: 'John Doe', department: 'Engineering', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', department: 'HR', email: 'jane@example.com' },
-  ]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const { user } = useContext(AppContext);
 
-  const [shifts, setShifts] = useState([
-    { id: 1, employee: 'John Doe', date: '2023-06-15', start: '09:00', end: '17:00', status: 'Scheduled' },
-    { id: 2, employee: 'Jane Smith', date: '2023-06-15', start: '13:00', end: '21:00', status: 'Scheduled' },
-  ]);
+  // Mock data - in a real app, this would come from an API
+  const stats = [
+    { name: 'Total Employees', value: '24', change: '+4.75%', changeType: 'positive' },
+    { name: 'Active Shifts', value: '12', change: '+2.02%', changeType: 'positive' },
+    { name: 'Pending Requests', value: '5', change: '0%', changeType: 'neutral' },
+    { name: 'Upcoming Holidays', value: '2', change: '+1.39%', changeType: 'positive' },
+  ];
 
-  const navigate = useNavigate();
+  const recentShifts = [
+    { id: 1, name: 'John Doe', date: '2023-11-15', shift: 'Morning', status: 'Completed' },
+    { id: 2, name: 'Jane Smith', date: '2023-11-15', shift: 'Evening', status: 'In Progress' },
+    { id: 3, name: 'Robert Johnson', date: '2023-11-16', shift: 'Night', status: 'Scheduled' },
+  ];
 
-  useEffect(() => {
-    // In a real app, fetch admin data here
-    const userName = localStorage.getItem('userName') || 'Admin User';
-    setUser(prev => ({ ...prev, name: userName }));
-  }, []);
+  const upcomingTimeOff = [
+    { id: 1, name: 'Emily Davis', startDate: '2023-11-20', endDate: '2023-11-22', type: 'Vacation' },
+    { id: 2, name: 'Michael Brown', startDate: '2023-11-25', endDate: '2023-11-26', type: 'Sick Leave' },
+  ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    navigate('/');
-  };
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-[#041296] rounded-lg flex items-center justify-center text-white font-bold">
-              ESB
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{user.name}</p>
+              <p className="text-xs text-gray-500">{user.role === 'admin' ? 'Administrator' : 'Employee'}</p>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">Welcome, {user.name}</span>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              Logout
-            </button>
+            <LogoutButton />
           </div>
         </div>
       </header>

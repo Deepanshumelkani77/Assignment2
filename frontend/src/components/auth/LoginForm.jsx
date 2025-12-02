@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { AppContext } from '../../context/AppContext';
 
 const LoginForm = () => {
+  const { login, register, loading, error, setError } = useContext(AppContext);
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
-    name: '',
     employeeCode: '',
     department: ''
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = location.pathname.includes('/admin');
-  const role = isAdmin ? 'Admin' : 'Employee';
+  const role = isAdmin ? 'admin' : 'employee';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,40 +28,29 @@ const LoginForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (isLogin) {
+      // Handle login
+      const { email, password } = formData;
+      await login({ email, password });
+    } else {
+      // Handle registration
+      const { name, email, password, employeeCode, department } = formData;
+      const result = await register(
+        { name, email, password, employeeCode, department },
+        isAdmin ? 'admin' : 'employee'
+      );
       
-      // For demo purposes, check the hardcoded admin credentials
-      if (isLogin) {
-        if (formData.email === 'hire-me@anshumat.org' && formData.password === 'HireMe@2025!') {
-          // Store token in localStorage
-          localStorage.setItem('token', 'demo-jwt-token');
-          localStorage.setItem('role', 'admin');
-          localStorage.setItem('userName', 'Admin User');
-          navigate('/admin/dashboard');
-        } else {
-          // For demo, any other credentials will work as employee
-          localStorage.setItem('token', 'demo-employee-token');
-          localStorage.setItem('role', 'employee');
-          localStorage.setItem('userName', formData.email.split('@')[0] || 'Employee');
-          localStorage.setItem('userId', 'emp-' + Math.random().toString(36).substr(2, 9));
-          navigate('/employee/dashboard');
-        }
-      } else {
-        // Handle signup logic here
-        // For demo, just log and show success message
-        console.log('Signup data:', formData);
-        setLoading(false);
-        alert('Account created successfully! Please login.');
-        setIsLogin(true);
+      if (result.success) {
+        // Reset form after successful registration
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          employeeCode: '',
+          department: ''
+        });
       }
-    } catch (err) {
-      setError(err.message || 'An error occurred. Please try again.');
-      setLoading(false);
     }
   };
 
