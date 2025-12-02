@@ -51,7 +51,7 @@ const AppContextProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,16 +68,13 @@ const AppContextProvider = ({ children }) => {
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Auto login after registration
-      await login({
-        email: userData.email,
-        password: userData.password
-      });
-
+      // Return success without auto-login
       return { success: true };
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
-      return { success: false, error: err.message };
+      console.error('Registration error:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
