@@ -35,17 +35,15 @@ connectDB();
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
-
-
+const shiftRoutes = require('./routes/shiftRoutes');
 
 // Middleware
 app.use(express.json());
 app.use(cors());
 
-
-
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/shifts', shiftRoutes);
 
 
 

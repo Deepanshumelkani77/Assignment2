@@ -1,5 +1,7 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import RoleSelection from './components/auth/RoleSelection';
 import LoginForm from './components/auth/LoginForm';
 import AdminDashboard from './components/dashboard/AdminDashboard';
@@ -8,8 +10,22 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { AppContext } from './context/AppContext';
 
 const App = () => {
-  const { user, loading } = useContext(AppContext);
+  const { user, loading, checkAuth } = useContext(AppContext);
   const location = useLocation();
+  
+  // Check authentication status on app load
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        await checkAuth();
+      } catch (error) {
+        console.error('Authentication check failed:', error);
+        toast.error('Failed to verify authentication status');
+      }
+    };
+    
+    verifyAuth();
+  }, [checkAuth]);
   
   // Show loading spinner while checking auth state
   if (loading) {
@@ -20,10 +36,23 @@ const App = () => {
     );
   }
 
-  // If user is logged in and tries to access login/role selection, redirect to appropriate dashboard
-  if (user && (location.pathname === '/' || location.pathname.startsWith('/login'))) {
-    const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
-    return <Navigate to={redirectPath} replace />;
+  // Redirect to appropriate dashboard if user is already authenticated
+  if (user) {
+    // If trying to access root or login pages, redirect to appropriate dashboard
+      if (location.pathname === '/' || location.pathname.startsWith('/login')) {
+        const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
+        return <Navigate to={redirectPath} replace />;
+      }
+      
+      // Prevent access to other role's dashboard
+      if (
+        (user.role === 'admin' && location.pathname.startsWith('/employee')) ||
+        (user.role === 'employee' && location.pathname.startsWith('/admin'))
+      ) {
+        toast.error('You do not have permission to access this page');
+        const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
+        return <Navigate to={redirectPath} replace />;
+      }
   }
   
   return (
@@ -62,7 +91,43 @@ const App = () => {
           }
         />
         
-        {/* Redirect to appropriate dashboard based on role */}
+        {/* Public error pages */}
+        <Route path="/unauthorized" element={
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-red-600 mb-4">403</h1>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Access Denied</h2>
+              <p className="text-gray-600 mb-6">You don't have permission to access this page.</p>
+              <button 
+                onClick={() => window.history.back()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        } />
+        
+        {/* Fallback route */}
+        <Route 
+          path="*" 
+          element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">404</h1>
+                <h2 className="text-2xl font-semibold text-gray-700 mb-2">Page Not Found</h2>
+                <p className="text-gray-600 mb-6">The page you're looking for doesn't exist or has been moved.</p>
+                <button 
+                  onClick={() => window.history.back()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          } 
+        />
+        
         {/* Redirect to appropriate dashboard based on role */}
         <Route 
           path="/dashboard" 
