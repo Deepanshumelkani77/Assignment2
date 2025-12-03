@@ -566,138 +566,192 @@ const AdminDashboard = () => {
 
       {/* Add Shift Modal */}
       {showAddShiftModal && (
-        <div className="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowAddShiftModal(false)}></div>
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-700 bg-opacity-75 transition-opacity" 
+              onClick={() => setShowAddShiftModal(false)}
+              aria-hidden="true"
+            ></div>
+            
+            {/* Modal container */}
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <FaCalendarAlt className="h-6 w-6 text-blue-600" aria-hidden="true" />
+            
+            <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+              {/* Modal header */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 text-blue-600 bg-blue-100 rounded-full">
+                    <FaCalendarAlt className="w-5 h-5" />
                   </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                      Add New Shift
-                    </h3>
-                    <div className="mt-2">
-                      <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Employee Select */}
-                        <div>
-                          <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
-                            Employee
-                          </label>
-                          <select
-                            id="employeeId"
-                            name="employeeId"
-                            value={formData.employeeId}
-                            onChange={handleInputChange}
-                            className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border ${formErrors.employeeId ? 'border-red-300' : 'border-gray-300'} focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
-                          >
-                            {employees.map((employee) => (
-                              <option key={employee._id} value={employee._id}>
-                                {employee.name} ({employee.email})
-                              </option>
-                            ))}
-                          </select>
-                          {formErrors.employeeId && (
-                            <p className="mt-1 text-sm text-red-600">{formErrors.employeeId}</p>
-                          )}
-                        </div>
+                  <h3 className="ml-3 text-lg font-medium leading-6 text-gray-900" id="modal-title">
+                    Schedule New Shift
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddShiftModal(false)}
+                  className="text-gray-400 bg-transparent hover:bg-gray-100 hover:text-gray-500 rounded-full p-1.5 inline-flex items-center"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
 
-                        {/* Date Picker */}
-                        <div>
-                          <label htmlFor="date" className="block text-sm font-medium text-gray-700">
-                            Date
-                          </label>
-                          <div className="mt-1 relative rounded-md shadow-sm">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <FaCalendarAlt className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                              type="date"
-                              name="date"
-                              id="date"
-                              value={formData.date}
-                              onChange={handleInputChange}
-                              min={format(new Date(), 'yyyy-MM-dd')}
-                              className={`pl-10 block w-full border ${formErrors.date ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                            />
-                          </div>
-                          {formErrors.date && (
-                            <p className="mt-1 text-sm text-red-600">{formErrors.date}</p>
-                          )}
-                        </div>
+              {/* Modal body */}
+              <div className="mt-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Employee Select */}
+                  <div className="space-y-1">
+                    <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
+                      Select Employee
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <FaUser className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <select
+                        id="employeeId"
+                        name="employeeId"
+                        value={formData.employeeId}
+                        onChange={handleInputChange}
+                        className={`block w-full py-2 pl-10 pr-3 text-base border ${formErrors.employeeId ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md shadow-sm focus:outline-none sm:text-sm`}
+                      >
+                        <option value="">Select an employee</option>
+                        {employees.map((employee) => (
+                          <option key={employee._id} value={employee._id}>
+                            {employee.name} • {employee.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {formErrors.employeeId && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.employeeId}</p>
+                    )}
+                  </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          {/* Start Time */}
-                          <div>
-                            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
-                              Start Time
-                            </label>
-                            <div className="mt-1 relative rounded-md shadow-sm">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FaClock className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <input
-                                type="time"
-                                name="startTime"
-                                id="startTime"
-                                value={formData.startTime}
-                                onChange={handleInputChange}
-                                className={`pl-10 block w-full border ${formErrors.startTime ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                              />
-                            </div>
-                            {formErrors.startTime && (
-                              <p className="mt-1 text-sm text-red-600">{formErrors.startTime}</p>
-                            )}
-                          </div>
+                  {/* Date Picker */}
+                  <div className="space-y-1">
+                    <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+                      Shift Date
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <FaCalendarAlt className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="date"
+                        name="date"
+                        id="date"
+                        value={formData.date}
+                        onChange={handleInputChange}
+                        min={format(new Date(), 'yyyy-MM-dd')}
+                        className={`block w-full py-2 pl-10 pr-3 text-base border ${formErrors.date ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md shadow-sm focus:outline-none sm:text-sm`}
+                      />
+                    </div>
+                    {formErrors.date && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.date}</p>
+                    )}
+                  </div>
 
-                          {/* End Time */}
-                          <div>
-                            <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
-                              End Time
-                            </label>
-                            <div className="mt-1 relative rounded-md shadow-sm">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <FaClock className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <input
-                                type="time"
-                                name="endTime"
-                                id="endTime"
-                                value={formData.endTime}
-                                onChange={handleInputChange}
-                                className={`pl-10 block w-full border ${formErrors.endTime ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                              />
-                            </div>
-                            {formErrors.endTime && (
-                              <p className="mt-1 text-sm text-red-600">{formErrors.endTime}</p>
-                            )}
-                          </div>
+                  {/* Time Inputs */}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {/* Start Time */}
+                    <div className="space-y-1">
+                      <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
+                        Start Time
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          <FaClock className="w-4 h-4 text-gray-400" />
                         </div>
+                        <input
+                          type="time"
+                          name="startTime"
+                          id="startTime"
+                          value={formData.startTime}
+                          onChange={handleInputChange}
+                          className={`block w-full py-2 pl-10 pr-3 text-base border ${formErrors.startTime ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md shadow-sm focus:outline-none sm:text-sm`}
+                        />
+                      </div>
+                      {formErrors.startTime && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.startTime}</p>
+                      )}
+                    </div>
 
-                        {/* Duration Preview */}
-                        <div className="bg-blue-50 p-3 rounded-md">
-                          <p className="text-sm text-blue-700">
-                            <span className="font-medium">Shift Duration:</span>{' '}
-                            {formData.startTime && formData.endTime ? (
-                              <>
-                                {calculateDuration(formData.startTime, formData.endTime)} hours
-                                {parseFloat(calculateDuration(formData.startTime, formData.endTime)) < 4 && (
-                                  <span className="ml-2 text-red-600">
-                                    (Minimum 4 hours required)
-                                  </span>
-                                )}
-                              </>
-                            ) : '--'}
-                          </p>
+                    {/* End Time */}
+                    <div className="space-y-1">
+                      <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
+                        End Time
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                          <FaClock className="w-4 h-4 text-gray-400" />
                         </div>
-                      </form>
+                        <input
+                          type="time"
+                          name="endTime"
+                          id="endTime"
+                          value={formData.endTime}
+                          onChange={handleInputChange}
+                          className={`block w-full py-2 pl-10 pr-3 text-base border ${formErrors.endTime ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md shadow-sm focus:outline-none sm:text-sm`}
+                        />
+                      </div>
+                      {formErrors.endTime && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.endTime}</p>
+                      )}
                     </div>
                   </div>
-                </div>
+
+                  {/* Duration Preview */}
+                  <div className={`p-4 rounded-lg ${formData.startTime && formData.endTime && parseFloat(calculateDuration(formData.startTime, formData.endTime)) < 4 ? 'bg-red-50 border border-red-100' : 'bg-blue-50 border border-blue-100'}`}>
+                    <div className="flex items-center">
+                      <div className={`flex-shrink-0 ${formData.startTime && formData.endTime && parseFloat(calculateDuration(formData.startTime, formData.endTime)) < 4 ? 'text-red-500' : 'text-blue-500'}`}>
+                        <FaClockSolid className="w-5 h-5" />
+                      </div>
+                      <div className="ml-3">
+                        <p className={`text-sm font-medium ${formData.startTime && formData.endTime && parseFloat(calculateDuration(formData.startTime, formData.endTime)) < 4 ? 'text-red-700' : 'text-blue-700'}`}>
+                          Shift Duration: {formData.startTime && formData.endTime ? (
+                            <span className="font-semibold">
+                              {calculateDuration(formData.startTime, formData.endTime)} hours
+                              {parseFloat(calculateDuration(formData.startTime, formData.endTime)) < 4 && (
+                                <span className="ml-2">
+                                  (Minimum 4 hours required)
+                                </span>
+                              )}
+                            </span>
+                          ) : '--'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Form actions */}
+                  <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddShiftModal(false)}
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <FaPlus className="w-4 h-4 mr-2" />
+                      Schedule Shift
+                    </button>
+                  </div>
+                </form>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
