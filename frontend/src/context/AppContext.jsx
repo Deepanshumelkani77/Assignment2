@@ -13,21 +13,30 @@ const AppContextProvider = ({ children }) => {
 
   // Check if user is logged in on initial load
   useEffect(() => {
-    // First try to get user from localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+    // Only check for stored user if we're not on the login or role selection pages
+    if (!window.location.pathname.includes('/login') && window.location.pathname !== '/') {
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      if (storedUser && token) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          // Only validate with server if we're not on a public route
+          checkUserLoggedIn();
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
+      } else {
+        // If no valid user/token but trying to access protected route, redirect to login
+        if (window.location.pathname.startsWith('/admin/') || 
+            window.location.pathname.startsWith('/employee/')) {
+          window.location.href = '/';
+        }
       }
     }
-    
-    // Then validate with the server
-    checkUserLoggedIn();
   }, []);
 
   // Check if user is logged in with the server
