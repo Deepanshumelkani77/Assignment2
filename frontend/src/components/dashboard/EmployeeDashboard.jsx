@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, Clock, User, Clock as ClockIcon } from 'react-feather';
+import { Calendar, Clock, User, Clock as ClockIcon, LogOut } from 'react-feather';
 import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
 
 const EmployeeDashboard = () => {
-  const { user } = useContext(AppContext);
+  const { user, logout } = useContext(AppContext);
   const [shifts, setShifts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [upcomingShifts, setUpcomingShifts] = useState([]);
@@ -15,12 +15,20 @@ const EmployeeDashboard = () => {
     upcomingShifts: 0
   });
 
+  const handleLogout = () => {
+    logout();
+  };
+
   // Fetch employee's shifts
   useEffect(() => {
     const fetchShifts = async () => {
       try {
         const response = await axios.get('/api/v1/shifts/my-shifts');
-        const shiftsData = response.data.data.shifts;
+        const shiftsData = response?.data?.data?.shifts || [];
+        
+        if (!Array.isArray(shiftsData)) {
+          throw new Error('Invalid shifts data received');
+        }
         
         // Sort shifts by date (newest first)
         const sortedShifts = [...shiftsData].sort((a, b) => 
@@ -54,6 +62,14 @@ const EmployeeDashboard = () => {
         });
       } catch (error) {
         console.error('Error fetching shifts:', error);
+        setShifts([]);
+        setUpcomingShifts([]);
+        setPastShifts([]);
+        setStats({
+          totalShifts: 0,
+          totalHours: 0,
+          upcomingShifts: 0
+        });
       } finally {
         setIsLoading(false);
       }
@@ -96,11 +112,21 @@ const EmployeeDashboard = () => {
     </div>
   );
 
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome back, {user?.name}!</h1>
-        <p className="text-gray-600">Here's your shift schedule and statistics.</p>
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome back, {user?.name}!</h1>
+          <p className="text-gray-600">Here's your shift schedule and statistics.</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors"
+        >
+          <LogOut size={18} />
+          Logout
+        </button>
       </div>
 
       {/* Stats Cards */}

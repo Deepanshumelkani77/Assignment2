@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search } from 'react-feather';
+import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search, LogOut } from 'react-feather';
 import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -32,19 +32,35 @@ const AdminDashboard = () => {
     setEditingShift(null);
   };
 
+  const { logout } = useContext(AppContext);
+
+  const handleLogout = () => {
+    logout();
+  };
+
   // Fetch all shifts and employees
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true);
         const [shiftsRes, employeesRes] = await Promise.all([
           axios.get('/api/v1/shifts'),
           axios.get('/api/v1/users/employees')
         ]);
         
-        setShifts(shiftsRes.data.data.shifts);
-        setEmployees(employeesRes.data.data.employees);
+        // Add null checks for the response data
+        const shiftsData = shiftsRes?.data?.data?.shifts || [];
+        const employeesData = employeesRes?.data?.data?.employees || [];
+        
+        setShifts(shiftsData);
+        setEmployees(employeesData);
       } catch (error) {
         console.error('Error fetching data:', error);
+        // Set empty arrays on error to prevent undefined errors
+        setShifts([]);
+        setEmployees([]);
+        // Show error message to user
+        alert('Failed to load data. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -122,22 +138,26 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PlusCircle className="mr-2" size={18} />
-          Add Shift
-        </button>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-6 relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+            >
+              <PlusCircle className="mr-2" size={18} />
+              Add Shift
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center"
+            >
+              <LogOut className="mr-2" size={18} />
+              Logout
+            </button>
+          </div>
         </div>
         <input
           type="text"
