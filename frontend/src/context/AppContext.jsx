@@ -13,8 +13,7 @@ const AppContextProvider = ({ children }) => {
 
   // Check if user is logged in on initial load
   useEffect(() => {
-    // Only check for stored user if we're not on the login or role selection pages
-    if (!window.location.pathname.includes('/login') && window.location.pathname !== '/') {
+    const checkAuth = async () => {
       const storedUser = localStorage.getItem('user');
       const token = localStorage.getItem('token');
       
@@ -22,27 +21,46 @@ const AppContextProvider = ({ children }) => {
         try {
           const parsedUser = JSON.parse(storedUser);
           setUser(parsedUser);
-          // Only validate with server if we're not on a public route
-          checkUserLoggedIn();
+          
+          // Always validate the token with the server
+          await checkUserLoggedIn();
+          
+          // If we're on the login or role selection page but already logged in, redirect to appropriate dashboard
+          if (window.location.pathname === '/' || window.location.pathname.includes('/login')) {
+            const dashboardPath = parsedUser.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
+            navigate(dashboardPath, { replace: true });
+          }
         } catch (error) {
-          console.error('Error parsing stored user:', error);
+          console.error('Authentication error:', error);
+          // Clear invalid auth data
           localStorage.removeItem('user');
           localStorage.removeItem('token');
+          setUser(null);
+          
+          // Only redirect if we're on a protected route
+          if (window.location.pathname.startsWith('/admin/') || 
+              window.location.pathname.startsWith('/employee/')) {
+            navigate('/', { replace: true });
+          }
         }
       } else {
-        // If no valid user/token but trying to access protected route, redirect to login
+        // No stored user/token but trying to access protected route
         if (window.location.pathname.startsWith('/admin/') || 
             window.location.pathname.startsWith('/employee/')) {
-          window.location.href = '/';
+          navigate('/', { replace: true });
         }
       }
-    }
-  }, []);
+    };
+    
+    checkAuth();
+  }, [navigate]);
 
   // Check if user is logged in with the server
   const checkUserLoggedIn = async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      throw new Error('No token found');
+    }
 
     try {
       setLoading(true);
@@ -150,17 +168,17 @@ const AppContextProvider = ({ children }) => {
   };
 
   // Login user
-  const login = async (credentials) => {
+  const login = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();

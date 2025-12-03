@@ -67,7 +67,7 @@ const LoginForm = () => {
       if (isLogin) {
         // Handle login
         const { email, password } = formData;
-        await login({ email, password });
+        await login(email, password);
       } else {
         // Handle registration
         const { name, email, password, employeeCode, department } = formData;
