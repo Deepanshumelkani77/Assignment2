@@ -1,25 +1,45 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search, LogOut } from 'react-feather';
+import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search, LogOut, BarChart2, Users, Clock as ClockIcon, Filter, X } from 'react-feather';
 import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isThisWeek, isAfter } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AdminDashboard = () => {
-  const { user } = useContext(AppContext);
+  const { user, logout } = useContext(AppContext);
   const [shifts, setShifts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
-  // Form state
+  // Form state with validation
   const [formData, setFormData] = useState({
     employee: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '09:00',
     endTime: '17:00'
   });
+  
+  const [formErrors, setFormErrors] = useState({});
+  
+  // Stats calculation
+  const stats = {
+    totalShifts: shifts.length,
+    activeEmployees: new Set(shifts.map(shift => shift.employee?._id)).size || 0,
+    upcomingShifts: shifts.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date())).length,
+    totalHours: shifts.reduce((acc, shift) => {
+      const [startH, startM] = shift.startTime.split(':').map(Number);
+      const [endH, endM] = shift.endTime.split(':').map(Number);
+      const hours = (endH + endM/60) - (startH + startM/60);
+      return acc + (hours > 0 ? hours : 0);
+    }, 0).toFixed(1)
+  };
   
   // Reset form to default values
   const resetForm = () => {
@@ -31,8 +51,6 @@ const AdminDashboard = () => {
     });
     setEditingShift(null);
   };
-
-  const { logout } = useContext(AppContext);
 
   const handleLogout = () => {
     logout();
@@ -123,216 +141,541 @@ const AdminDashboard = () => {
     }
   };
 
-  const filteredShifts = shifts.filter(shift => {
-    const employeeName = shift.employee.name.toLowerCase();
-    const searchLower = searchTerm.toLowerCase();
-    return employeeName.includes(searchLower);
-  });
+  // Format date for display
+  const formatDisplayDate = (dateString) => {
+    const date = new Date(dateString);
+    if (isToday(date)) return 'Today';
+    if (isTomorrow(date)) return 'Tomorrow';
+    return format(date, 'MMM d, yyyy');
+  };
+
+  // Calculate shift duration
+  const calculateDuration = (startTime, endTime) => {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const hours = (endH + endM/60) - (startH + startM/60);
+    return hours > 0 ? `${hours.toFixed(1)}h` : 'Invalid';
+  };
+
+  // Filter shifts based on active filter and search term
+  const getFilteredShifts = () => {
+    let filtered = [...shifts];
+    
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(shift => 
+        shift.employee?.name?.toLowerCase().includes(searchLower) ||
+        shift.employee?.employeeCode?.toLowerCase().includes(searchLower) ||
+        shift.department?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply time filter
+    const now = new Date();
+    switch(activeFilter) {
+      case 'today':
+        filtered = filtered.filter(shift => isToday(parseISO(shift.date)));
+        break;
+      case 'upcoming':
+        filtered = filtered.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), now));
+        break;
+      case 'past':
+        filtered = filtered.filter(shift => !isAfter(parseISO(`${shift.date}T${shift.endTime}`), now));
+        break;
+      // 'all' and default show all shifts
+    }
+    
+    return filtered;
+  };
+
+  const filteredShifts = getFilteredShifts();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#021189]"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-          <div className="flex space-x-4">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
-            >
-              <PlusCircle className="mr-2" size={18} />
-              Add Shift
-            </button>
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center"
-            >
-              <LogOut className="mr-2" size={18} />
-              Logout
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-[#021189] text-white shadow-md">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <BarChart2 className="h-8 w-8" />
+              <h1 className="text-xl font-bold">ShiftSync Admin</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:flex items-center space-x-1 bg-white/10 px-3 py-1.5 rounded-full">
+                <User className="h-4 w-4 text-blue-200" />
+                <span className="text-sm font-medium">{user?.name || 'Admin'}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
-        <input
-          type="text"
-          placeholder="Search employees..."
-          className="pl-10 w-full md:w-1/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+      </header>
+
+      <main className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Shifts Card */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-blue-50">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-800">{stats.totalShifts}</p>
+                <p className="text-sm text-gray-500">Total Shifts</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Employees Card */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-emerald-50">
+                <Users className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-800">{stats.activeEmployees}</p>
+                <p className="text-sm text-gray-500">Active Employees</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Upcoming Shifts Card */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-amber-50">
+                <ClockIcon className="h-6 w-6 text-amber-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-800">{stats.upcomingShifts}</p>
+                <p className="text-sm text-gray-500">Upcoming Shifts</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Hours Card */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all hover:-translate-y-0.5">
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-violet-50">
+                <Clock className="h-6 w-6 text-violet-600" />
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-800">{stats.totalHours}h</p>
+                <p className="text-sm text-gray-500">Total Hours</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h2 className="text-xl font-bold text-gray-800">Shift Management</h2>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search employees..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="relative">
+                <button 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium">
+                    {activeFilter === 'today' ? 'Today' : 
+                     activeFilter === 'upcoming' ? 'Upcoming' : 
+                     activeFilter === 'past' ? 'Past' : 'All Shifts'}
+                  </span>
+                </button>
+                
+                {isFilterOpen && (
+                  <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                    <div className="p-2">
+                      <button 
+                        onClick={() => {
+                          setActiveFilter('all');
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md ${activeFilter === 'all' ? 'bg-blue-50 text-[#021189]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        All Shifts
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveFilter('today');
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md ${activeFilter === 'today' ? 'bg-blue-50 text-[#021189]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        Today
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveFilter('upcoming');
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md ${activeFilter === 'upcoming' ? 'bg-blue-50 text-[#021189]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        Upcoming
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setActiveFilter('past');
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md ${activeFilter === 'past' ? 'bg-blue-50 text-[#021189]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        Past Shifts
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#021189] text-white rounded-lg hover:bg-[#0a2ab5] transition-colors"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Add Shift</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
       {/* Shifts Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Time</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredShifts.length > 0 ? (
-              filteredShifts.map((shift) => (
-                <tr key={shift._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <User className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{shift.employee.name}</div>
-                        <div className="text-sm text-gray-500">{shift.employee.employeeCode}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{new Date(shift.date).toLocaleDateString()}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{shift.startTime} - {shift.endTime}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      {shift.hours} hours
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => handleEdit(shift)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    >
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(shift._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                  No shifts found. Add a new shift to get started.
-                </td>
-              </tr>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {filteredShifts.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="mx-auto h-16 w-16 text-gray-300 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-700 mb-1">No shifts found</h3>
+            <p className="text-gray-500 max-w-md mx-auto">
+              {searchTerm 
+                ? 'No shifts match your search. Try adjusting your filters.' 
+                : activeFilter === 'today' 
+                  ? 'No shifts scheduled for today.' 
+                  : activeFilter === 'upcoming' 
+                    ? 'No upcoming shifts.' 
+                    : activeFilter === 'past' 
+                      ? 'No past shifts found.' 
+                      : 'No shifts have been added yet.'}
+            </p>
+            {!searchTerm && activeFilter === 'all' && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
+                }}
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#021189] hover:bg-[#0a2ab5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#021189]"
+              >
+                <PlusCircle className="-ml-1 mr-2 h-5 w-5" />
+                Add Your First Shift
+              </button>
             )}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {filteredShifts.map((shift) => {
+                  const shiftDate = parseISO(shift.date);
+                  const isUpcoming = isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date());
+                  
+                  return (
+                    <motion.tr 
+                      key={shift._id} 
+                      className="hover:bg-gray-50"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-[#021189]" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{shift.employee.name}</div>
+                            <div className="text-xs text-gray-500">{shift.employee.employeeCode} • {shift.department || 'No Department'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                          <span className={isToday(shiftDate) ? 'font-semibold text-[#021189]' : ''}>
+                            {formatDisplayDate(shift.date)}
+                            {isToday(shiftDate) && (
+                              <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-[#021189] rounded-full">
+                                Today
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                          <div className="flex flex-col">
+                            <span className={`text-sm ${isUpcoming ? 'text-gray-900' : 'text-gray-500'}`}>
+                              {shift.startTime} - {shift.endTime}
+                            </span>
+                            {!isUpcoming && (
+                              <span className="text-xs text-gray-400">Completed</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-4 font-medium rounded-full ${
+                          isUpcoming 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {calculateDuration(shift.startTime, shift.endTime)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => handleEdit(shift)}
+                            className="p-1.5 text-gray-500 hover:text-[#021189] hover:bg-blue-50 rounded-full transition-colors"
+                            title="Edit shift"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(shift._id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            title="Delete shift"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Shift Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingShift ? 'Edit Shift' : 'Add New Shift'}
-              </h2>
-              <button 
-                onClick={() => {
-                  setIsModalOpen(false);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <span className="text-2xl">&times;</span>
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                <select
-                  name="employee"
-                  value={formData.employee}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  required
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}
+          >
+            <motion.div 
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 500 }}
+            >
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {editingShift ? 'Edit Shift' : 'Schedule New Shift'}
+                </h3>
+                <button 
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    resetForm();
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
                 >
-                  <option value="">Select an employee</option>
-                  {employees.map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} ({emp.employeeCode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    name="startTime"
-                    value={formData.startTime}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                  <input
-                    type="time"
-                    name="endTime"
-                    value={formData.endTime}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Save Shift
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              
+              <form onSubmit={handleSubmit} className="p-6">
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>
+                    <div className="relative">
+                      <select
+                        name="employee"
+                        value={formData.employee}
+                        onChange={handleInputChange}
+                        className={`w-full pl-3 pr-10 py-2.5 border ${
+                          formErrors.employee ? 'border-red-300' : 'border-gray-300'
+                        } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                        required
+                      >
+                        <option value="">Select Employee</option>
+                        {employees.map(emp => (
+                          <option key={emp._id} value={emp._id}>
+                            {emp.name} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                    {formErrors.employee && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.employee}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="date"
+                        value={formData.date}
+                        onChange={handleInputChange}
+                        className={`w-full pl-3 pr-10 py-2.5 border ${
+                          formErrors.date ? 'border-red-300' : 'border-gray-300'
+                        } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                        required
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <Calendar className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                    {formErrors.date && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.date}</p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Time</label>
+                      <div className="relative">
+                        <input
+                          type="time"
+                          name="startTime"
+                          value={formData.startTime}
+                          onChange={handleInputChange}
+                          className={`w-full pl-3 pr-10 py-2.5 border ${
+                            formErrors.startTime ? 'border-red-300' : 'border-gray-300'
+                          } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                          required
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <Clock className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
+                      {formErrors.startTime && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.startTime}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">End Time</label>
+                      <div className="relative">
+                        <input
+                          type="time"
+                          name="endTime"
+                          value={formData.endTime}
+                          onChange={handleInputChange}
+                          className={`w-full pl-3 pr-10 py-2.5 border ${
+                            formErrors.endTime ? 'border-red-300' : 'border-gray-300'
+                          } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                          required
+                        />
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <Clock className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
+                      {formErrors.endTime && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.endTime}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {Object.keys(formErrors).length > 0 && !formErrors.employee && !formErrors.date && !formErrors.startTime && !formErrors.endTime && (
+                    <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">
+                            {Object.values(formErrors)[0]}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      resetForm();
+                    }}
+                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 text-sm font-medium text-white bg-[#021189] rounded-lg hover:bg-[#0a2ab5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#021189] transition-colors"
+                  >
+                    {editingShift ? 'Update Shift' : 'Schedule Shift'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </main>
     </div>
   );
 };
