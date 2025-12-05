@@ -1,0 +1,310 @@
+{
+  "info": {
+    "name": "Shift Management System API",
+    "description": "API documentation for the Shift Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": JSON.stringify({
+                "name": "John Doe",
+                "email": "john@example.com",
+                "password": "password123",
+                "role": "employee"
+              }, null, 2)
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": JSON.stringify({
+                "email": "admin@example.com",
+                "password": "admin123"
+              }, null, 2)
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get All Employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/employees",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/60d21b4667d0d8992e610c85",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "60d21b4667d0d8992e610c85"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": JSON.stringify({
+                "name": "Updated Name",
+                "email": "updated@example.com"
+              }, null, 2)
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/60d21b4667d0d8992e610c85",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "60d21b4667d0d8992e610c85"]
+            }
+          }
+        },
+        {
+          "name": "Delete User (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/60d21b4667d0d8992e610c85",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "60d21b4667d0d8992e610c85"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shifts",
+      "item": [
+        {
+          "name": "Get All Shifts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shifts"]
+            }
+          }
+        },
+        {
+          "name": "Get Shift by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/60d21b4667d0d8992e610c86",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shifts", "60d21b4667d0d8992e610c86"]
+            }
+          }
+        },
+        {
+          "name": "Create New Shift",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": JSON.stringify({
+                "employee": "60d21b4667d0d8992e610c85",
+                "date": "2025-12-10",
+                "startTime": "09:00 AM",
+                "endTime": "05:00 PM",
+                "description": "Regular shift"
+              }, null, 2)
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shifts"]
+            }
+          }
+        },
+        {
+          "name": "Update Shift",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": JSON.stringify({
+                "startTime": "10:00 AM",
+                "endTime": "06:00 PM",
+                "description": "Updated shift time"
+              }, null, 2)
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/60d21b4667d0d8992e610c86",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shifts", "60d21b4667d0d8992e610c86"]
+            }
+          }
+        },
+        {
+          "name": "Delete Shift",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/60d21b4667d0d8992e610c86",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "shifts", "60d21b4667d0d8992e610c86"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://assignment2-t9he.onrender.com",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}

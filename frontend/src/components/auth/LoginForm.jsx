@@ -12,6 +12,7 @@ const LoginForm = () => {
     employeeCode: '',
     department: ''
   });
+  
 
   const departments = [
     'Sales',
@@ -30,6 +31,16 @@ const LoginForm = () => {
   const location = useLocation();
   const isAdmin = location.pathname.includes('/admin');
   const role = isAdmin ? 'admin' : 'employee';
+  
+  // Force isLogin to true for admin users
+  const effectiveIsLogin = isAdmin ? true : isLogin;
+  
+  // Set isLogin to true by default if admin
+  React.useEffect(() => {
+    if (isAdmin) {
+      setIsLogin(true);
+    }
+  }, [isAdmin]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,7 +97,7 @@ const LoginForm = () => {
     }
     
     try {
-      if (isLogin) {
+      if (effectiveIsLogin) {
         // Handle login
         const { email, password } = formData;
         await login(email, password);
@@ -147,28 +158,34 @@ const LoginForm = () => {
         {/* Main Form Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           {/* Form Tabs */}
-          <div className="grid grid-cols-2 bg-gray-50">
-            <button
-              onClick={() => setIsLogin(true)}
-              className={`py-4 font-medium text-sm ${
-                isLogin 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setIsLogin(false)}
-              className={`py-4 font-medium text-sm ${
-                !isLogin 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
+          {!isAdmin ? (
+            <div className="grid grid-cols-2 bg-gray-50">
+              <button
+                onClick={() => setIsLogin(true)}
+                className={`py-4 font-medium text-sm ${
+                  isLogin 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setIsLogin(false)}
+                className={`py-4 font-medium text-sm ${
+                  !isLogin 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          ) : (
+            <div className="py-4 text-center font-medium text-sm text-blue-600 border-b-2 border-blue-600 bg-gray-50">
+              Admin Sign In
+            </div>
+          )}
 
           <div className="p-8">
             {error && (
@@ -177,8 +194,8 @@ const LoginForm = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {!isLogin && (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {!effectiveIsLogin && (
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -306,29 +323,27 @@ const LoginForm = () => {
                       </svg>
                       Processing...
                     </span>
-                  ) : isLogin ? (
-                    'Sign In'
-                  ) : (
-                    'Create Account'
-                  )}
+                  ) : effectiveIsLogin ? 'Sign In' : 'Create Account'}
                 </button>
               </div>
             </form>
           </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
-          </p>
-        </div>
+        {!isAdmin && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              {effectiveIsLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+              <button
+                type="button"
+                onClick={() => setIsLogin(!effectiveIsLogin)}
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                {effectiveIsLogin ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          </div>
+        )}
 
         <div className="mt-8 text-center">
           <Link 
