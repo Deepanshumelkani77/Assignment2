@@ -10,7 +10,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Please enter your email'],
-    unique: true,
     trim: true,
     lowercase: true,
     match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
@@ -34,8 +33,6 @@ const userSchema = new mongoose.Schema({
       }, 
       'Employee code is required for employees'
     ],
-    unique: this && this.role === 'employee',
-    sparse: true,
     default: null
   },
   department: {
