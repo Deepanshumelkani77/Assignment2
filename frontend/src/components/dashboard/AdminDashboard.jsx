@@ -77,8 +77,8 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         const [shiftsRes, employeesRes] = await Promise.all([
-          api.get('http://localhost:7000/api/v1/shifts'),
-          api.get('http://localhost:7000/api/v1/users/employees')
+          api.get('/api/v1/shifts'),
+          api.get('/api/v1/users/employees')
         ]);
         
         setShifts(shiftsRes.data.data.shifts || []);
@@ -243,10 +243,10 @@ const AdminDashboard = () => {
       };
       
       if (editingShift) {
-        await api.put(`http://localhost:7000/api/v1/shifts/${editingShift._id}`, formattedData);
+        await api.put(`/api/v1/shifts/${editingShift._id}`, formattedData);
         toast.success('Shift updated successfully');
       } else {
-        await api.post('http://localhost:7000/api/v1/shifts', formattedData);
+        await api.post('/api/v1/shifts', formattedData);
         toast.success('Shift created successfully');
       }
       
@@ -299,11 +299,11 @@ const AdminDashboard = () => {
   const handleDelete = async (shiftId) => {
     if (window.confirm('Are you sure you want to delete this shift?')) {
       try {
-        await api.delete(`http://localhost:7000/api/v1/shifts/${shiftId}`);
+        await api.delete(`/api/v1/shifts/${shiftId}`);
         toast.success('Shift deleted successfully');
         
         // Refresh shifts
-        const res = await api.get('http://localhost:7000/api/v1/shifts');
+        const res = await api.get('/api/v1/shifts');
         setShifts(res.data.data.shifts || []);
       } catch (error) {
         console.error('Error deleting shift:', error);

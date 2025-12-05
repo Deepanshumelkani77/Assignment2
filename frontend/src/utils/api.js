@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:7000';
+const API_URL = 'https://assignment2-t9he.onrender.com';
 
 // Create axios instance with base URL
 const api = axios.create({
