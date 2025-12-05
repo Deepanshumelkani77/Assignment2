@@ -118,13 +118,15 @@ const AdminDashboard = () => {
     }
     
     try {
-      // Convert times to 12-hour format for the API
+      // Prepare the payload with proper time format
       const payload = {
         employee: formData.employee,
         date: formData.date,
-        startTime: convertTo12Hour(formData.startTime),
-        endTime: convertTo12Hour(formData.endTime)
+        startTime: formData.startTime,
+        endTime: formData.endTime
       };
+      
+      console.log('Sending payload to API:', payload);
 
       console.log('Sending payload to API:', payload);
       
@@ -148,8 +150,16 @@ const AdminDashboard = () => {
           console.log('Creating new shift');
           response = await api.post(apiUrl, payload);
           console.log('Create response:', response);
-          setShifts([...shifts, response.data.data.shift]);
-          toast.success('Shift created successfully!');
+          
+          // Add the new shift to the shifts array
+          if (response.data && response.data.data && response.data.data.shift) {
+            setShifts(prevShifts => [...prevShifts, response.data.data.shift]);
+            toast.success('Shift created successfully!');
+            resetForm();
+            setIsModalOpen(false);
+          } else {
+            throw new Error('Invalid response format from server');
+          }
         }
         
         // Close modal and reset form
