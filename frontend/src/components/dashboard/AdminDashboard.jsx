@@ -1,12 +1,25 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search, LogOut, BarChart2, Users, Clock as ClockIcon, Filter, X } from 'react-feather';
+import { 
+  PlusCircle, 
+  Trash2, 
+  Edit, 
+  Calendar, 
+  Clock, 
+  User, 
+  Search, 
+  LogOut, 
+  BarChart2, 
+  Users, 
+  Clock as ClockIcon, 
+  Filter, 
+  X 
+} from 'react-feather';
 import { AppContext } from '../../context/AppContext';
 import api from '../../utils/api';
 import { format, parseISO, isToday, isTomorrow, isThisWeek, isAfter } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import axios from 'axios';
 
 const AdminDashboard = () => {
   const { user, logout } = useContext(AppContext);
@@ -18,7 +31,7 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('shifts'); // 'shifts' or 'employees'
+  const [activeTab, setActiveTab] = useState('shifts');
   
   // Form state with validation
   const [formData, setFormData] = useState({
@@ -33,6 +46,7 @@ const AdminDashboard = () => {
   // Stats calculation
   const stats = {
     totalShifts: shifts.length,
+    totalEmployees: employees.length,
     activeEmployees: new Set(shifts.map(shift => shift.employee?._id)).size || 0,
     upcomingShifts: shifts.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date())).length,
     totalHours: shifts.reduce((acc, shift) => {
@@ -42,7 +56,7 @@ const AdminDashboard = () => {
       return acc + (hours > 0 ? hours : 0);
     }, 0).toFixed(1)
   };
-  
+
   // Reset form to default values
   const resetForm = () => {
     setFormData({
@@ -62,25 +76,16 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true);
         const [shiftsRes, employeesRes] = await Promise.all([
           api.get('http://localhost:7000/api/v1/shifts'),
           api.get('http://localhost:7000/api/v1/users/employees')
         ]);
         
-        // Add null checks for the response data
-        const shiftsData = shiftsRes?.data?.data?.shifts || [];
-        const employeesData = employeesRes?.data?.data?.employees || [];
-        
-        setShifts(shiftsData);
-        setEmployees(employeesData);
+        setShifts(shiftsRes.data.data.shifts || []);
+        setEmployees(employeesRes.data.data.users || []);
       } catch (error) {
         console.error('Error fetching data:', error);
-        // Set empty arrays on error to prevent undefined errors
-        setShifts([]);
-        setEmployees([]);
-        // Show error message to user
-        alert('Failed to load data. Please try again later.');
+        toast.error('Failed to load data. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -100,195 +105,89 @@ const AdminDashboard = () => {
   // Helper function to convert 24h time to 12h format with AM/PM
   const convertTo12Hour = (time24) => {
     const [hours, minutes] = time24.split(':');
-    const parsedHours = parseInt(hours, 10);
-    const ampm = parsedHours >= 12 ? 'PM' : 'AM';
-    const hours12 = ((parsedHours + 11) % 12 + 1);
-    return `${hours12}:${minutes} ${ampm}`;
+    let period = 'AM';
+    let hour = parseInt(hours, 10);
+    
+    if (hour >= 12) {
+      period = 'PM';
+      if (hour > 12) hour -= 12;
+    }
+    if (hour === 0) hour = 12;
+    
+    return `${hour}:${minutes} ${period}`;
   };
 
-  // Helper function to convert 24h time to 12h format with AM/PM
+  // Format time for display
   const formatTimeTo12Hour = (time24) => {
     if (!time24) return '';
     
-    // Check if already in 12-hour format
-    if (time24.includes('AM') || time24.includes('PM')) {
-      return time24;
+    const [hours, minutes] = time24.split(':');
+    let period = 'AM';
+    let hour = parseInt(hours, 10);
+    
+    if (hour >= 12) {
+      period = 'PM';
+      if (hour > 12) hour -= 12;
     }
+    if (hour === 0) hour = 12;
     
-    // Ensure time is in HH:MM format
-    const [hoursStr, minutes = '00'] = time24.split(':');
-    let hours = parseInt(hoursStr, 10);
-    
-    // Handle invalid hour values
-    if (isNaN(hours) || hours < 0 || hours > 23) {
-      console.error('Invalid hour value:', hours);
-      return '12:00 PM'; // Default to noon if invalid
-    }
-    
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours || 12; // Convert 0 to 12 for 12 AM/PM
-    
-    // Ensure minutes are always 2 digits
-    const paddedMinutes = minutes.padStart(2, '0');
-    return `${hours}:${paddedMinutes} ${ampm}`;
+    return `${hour}:${minutes.padStart(2, '0')} ${period}`;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('handleSubmit called with form data:', formData);
-    
-    // Basic validation
-    if (!formData.employee) {
-      console.log('No employee selected');
-      toast.error('Please select an employee');
-      return;
-    }
-    
-    // Check if the selected date is in the past
-    const selectedDate = new Date(formData.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-    
-    if (selectedDate < today) {
-      toast.error('Cannot schedule shifts for past dates');
-      return;
-    }
-    
-    // If it's today, check the time
-    if (selectedDate.getTime() === today.getTime()) {
-      const now = new Date();
-      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
-      const startTime = new Date();
-      startTime.setHours(startHours, startMinutes, 0, 0);
-      
-      if (startTime < now) {
-        toast.error('Cannot schedule shifts in the past. Please select a future time.');
-        return;
-      }
-    }
     
     try {
-      // Format times to 12-hour format with AM/PM
-      const formattedStartTime = formatTimeTo12Hour(formData.startTime);
-      const formattedEndTime = formatTimeTo12Hour(formData.endTime);
-      
-      // Prepare the payload with properly formatted times
-      const payload = {
-        employee: formData.employee,
-        date: formData.date,
-        startTime: formattedStartTime,
-        endTime: formattedEndTime
-      };
-      
-      console.log('Sending payload to API:', payload);
-      
-      let response;
-      const apiUrl = editingShift 
-        ? `http://localhost:7000/api/v1/shifts/${editingShift._id}`
-        : 'http://localhost:7000/api/v1/shifts';
-      
-      try {
-        if (editingShift) {
-          // Update existing shift
-          console.log('Updating shift with ID:', editingShift._id);
-          response = await api.patch(apiUrl, payload);
-          console.log('Update response:', response);
-          setShifts(shifts.map(shift => 
-            shift._id === editingShift._id ? response.data.data.shift : shift
-          ));
-          toast.success('Shift updated successfully!');
-        } else {
-          // Create new shift
-          console.log('Creating new shift');
-          response = await api.post(apiUrl, payload);
-          console.log('Create response:', response);
-          
-          // Add the new shift to the shifts array
-          if (response.data && response.data.data && response.data.data.shift) {
-            setShifts(prevShifts => [...prevShifts, response.data.data.shift]);
-            toast.success('Shift created successfully!');
-            resetForm();
-            setIsModalOpen(false);
-          } else {
-            throw new Error('Invalid response format from server');
-          }
-        }
-        
-        // Close modal and reset form
-        setIsModalOpen(false);
-        resetForm();
-        
-      } catch (apiError) {
-        console.error('API Error details:', {
-          message: apiError.message,
-          response: apiError.response?.data,
-          status: apiError.response?.status,
-          headers: apiError.response?.headers,
-          config: {
-            url: apiError.config?.url,
-            method: apiError.config?.method,
-            data: apiError.config?.data,
-            headers: apiError.config?.headers
-          }
-        });
-        throw apiError; // Re-throw to be caught by the outer catch
+      if (editingShift) {
+        await api.put(`http://localhost:7000/api/v1/shifts/${editingShift._id}`, formData);
+        toast.success('Shift updated successfully');
+      } else {
+        await api.post('http://localhost:7000/api/v1/shifts', formData);
+        toast.success('Shift created successfully');
       }
       
+      // Refresh data
+      const [shiftsRes, employeesRes] = await Promise.all([
+        api.get('/api/v1/shifts'),
+        api.get('/api/v1/users/employees')
+      ]);
+      
+      setShifts(shiftsRes.data.data.shifts || []);
+      setEmployees(employeesRes.data.data.users || []);
+      
+      // Close modal and reset form
+      setIsModalOpen(false);
+      resetForm();
     } catch (error) {
-      console.error('Error in handleSubmit:', {
-        error,
-        errorMessage: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      let errorMessage = 'An error occurred while saving the shift';
-      
-      // Handle validation errors from backend
-      if (error.response?.data?.error) {
-        // Handle validation error object
-        errorMessage = error.response.data.error;
-      } else if (error.response?.data?.message) {
-        // Handle direct error message
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        // Fallback to error message
-        errorMessage = error.message;
-      }
-      
-      // Show error in toast
-      toast.error(errorMessage, {
-        autoClose: 5000,
-        closeOnClick: true,
-        pauseOnHover: true
-      });
+      console.error('Error saving shift:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to save shift';
+      toast.error(errorMessage);
     }
   };
 
   // Helper function to convert 12h time to 24h format for the time input
   const convertTo24Hour = (time12h) => {
-    const [time, modifier] = time12h.split(' ');
+    if (!time12h) return '';
+    
+    const [time, period] = time12h.split(' ');
     let [hours, minutes] = time.split(':');
     
-    if (hours === '12') {
+    if (period === 'PM' && hours !== '12') {
+      hours = parseInt(hours, 10) + 12;
+    } else if (period === 'AM' && hours === '12') {
       hours = '00';
     }
     
-    if (modifier === 'PM') {
-      hours = parseInt(hours, 10) + 12;
-    }
-    
-    return `${hours}:${minutes}`;
+    return `${hours.padStart(2, '0')}:${minutes}`;
   };
 
   const handleEdit = (shift) => {
     setEditingShift(shift);
     setFormData({
-      employee: shift.employee._id,
-      date: format(new Date(shift.date), 'yyyy-MM-dd'),
-      startTime: convertTo24Hour(shift.startTime),
-      endTime: convertTo24Hour(shift.endTime)
+      employee: shift.employee?._id || '',
+      date: shift.date,
+      startTime: shift.startTime,
+      endTime: shift.endTime
     });
     setIsModalOpen(true);
   };
@@ -297,12 +196,14 @@ const AdminDashboard = () => {
     if (window.confirm('Are you sure you want to delete this shift?')) {
       try {
         await api.delete(`http://localhost:7000/api/v1/shifts/${shiftId}`);
-        setShifts(shifts.filter(shift => shift._id !== shiftId));
-        toast.success('Shift deleted successfully!');
+        toast.success('Shift deleted successfully');
+        
+        // Refresh shifts
+        const res = await api.get('http://localhost:7000/api/v1/shifts');
+        setShifts(res.data.data.shifts || []);
       } catch (error) {
         console.error('Error deleting shift:', error);
-        const errorMessage = error.response?.data?.message || 'An error occurred while deleting the shift';
-        toast.error(errorMessage);
+        toast.error('Failed to delete shift');
       }
     }
   };
@@ -310,9 +211,12 @@ const AdminDashboard = () => {
   // Format date for display
   const formatDisplayDate = (dateString) => {
     const date = new Date(dateString);
-    if (isToday(date)) return 'Today';
-    if (isTomorrow(date)) return 'Tomorrow';
-    return format(date, 'MMM d, yyyy');
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   // Calculate shift duration
@@ -320,36 +224,38 @@ const AdminDashboard = () => {
     const [startH, startM] = startTime.split(':').map(Number);
     const [endH, endM] = endTime.split(':').map(Number);
     const hours = (endH + endM/60) - (startH + startM/60);
-    return hours > 0 ? `${hours.toFixed(1)}h` : 'Invalid';
+    return hours > 0 ? `${hours.toFixed(1)}h` : '0h';
   };
 
   // Filter shifts based on active filter and search term
   const getFilteredShifts = () => {
     let filtered = [...shifts];
     
-    // Apply search filter
+    // Apply search term filter
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(shift => 
-        shift.employee?.name?.toLowerCase().includes(searchLower) ||
-        shift.employee?.employeeCode?.toLowerCase().includes(searchLower) ||
-        shift.department?.toLowerCase().includes(searchLower)
+        shift.employee?.name.toLowerCase().includes(term) ||
+        shift.date.toLowerCase().includes(term) ||
+        shift.startTime.toLowerCase().includes(term) ||
+        shift.endTime.toLowerCase().includes(term)
       );
     }
     
-    // Apply time filter
-    const now = new Date();
-    switch(activeFilter) {
+    // Apply status filter
+    switch (activeFilter) {
       case 'today':
         filtered = filtered.filter(shift => isToday(parseISO(shift.date)));
         break;
       case 'upcoming':
-        filtered = filtered.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), now));
+        filtered = filtered.filter(shift => isAfter(parseISO(shift.date), new Date()));
         break;
       case 'past':
-        filtered = filtered.filter(shift => !isAfter(parseISO(`${shift.date}T${shift.endTime}`), now));
+        filtered = filtered.filter(shift => !isAfter(parseISO(shift.date), new Date()));
         break;
-      // 'all' and default show all shifts
+      default:
+        // No filter
+        break;
     }
     
     return filtered;
@@ -359,30 +265,41 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#021189]"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
-  // Tabs component
+  // Render tabs
   const renderTabs = () => (
     <div className="border-b border-gray-200 mb-6">
       <nav className="-mb-px flex space-x-8">
         <button
           onClick={() => setActiveTab('shifts')}
-          className={`${activeTab === 'shifts' ? 'border-[#021189] text-[#021189]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          className={`${
+            activeTab === 'shifts' 
+              ? 'border-blue-500 text-blue-600' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
         >
-          Shifts
+          <span className="flex items-center">
+            <ClockIcon className="h-4 w-4 mr-2" />
+            Shifts
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('employees')}
-          className={`${activeTab === 'employees' ? 'border-[#021189] text-[#021189]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          className={`${
+            activeTab === 'employees' 
+              ? 'border-blue-500 text-blue-600' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
         >
-          Employees
+          <span className="flex items-center">
+            <Users className="h-4 w-4 mr-2" />
+            Employees
+          </span>
         </button>
       </nav>
     </div>
@@ -392,97 +309,177 @@ const AdminDashboard = () => {
   const renderEmployeeList = () => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       {employees.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="mx-auto h-16 w-16 text-gray-300 mb-4">
-            <Users className="h-16 w-16 mx-auto" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-700 mb-1">No employees found</h3>
-          <p className="text-gray-500 max-w-md mx-auto">
-            No employees have been added to the system yet.
-          </p>
+        <div className="text-center py-12 px-4">
+          <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No employees found</h3>
+          <p className="text-gray-500">Get started by adding a new employee</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Shifts
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {employees.map((employee) => (
-                <tr key={employee._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                        <User className="h-5 w-5 text-gray-500" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {employee.name}
-                        </div>
-                      </div>
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shifts</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {employees.map((employee) => (
+              <tr key={employee._id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-10 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <User className="h-5 w-5 text-indigo-600" />
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {employee.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      {employee.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {shifts.filter(shift => shift.employee?._id === employee._id).length}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {employee.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    employee.role === 'admin' 
+                      ? 'bg-purple-100 text-purple-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {employee.role}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {shifts.filter(shift => shift.employee?._id === employee._id).length}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#021189] text-white shadow-md">
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <BarChart2 className="h-8 w-8" />
-              <h1 className="text-xl font-bold">ShiftSync Admin</h1>
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500">Manage your team's schedules and shifts</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="hidden md:flex items-center px-3 py-2 rounded-lg bg-gray-100">
+              <User className="h-5 w-5 text-gray-500 mr-2" />
+              <span className="text-sm font-medium text-gray-700">
+                {user?.name || 'Admin'}
+              </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-1 bg-white/10 px-3 py-1.5 rounded-full">
-                <User className="h-4 w-4 text-blue-200" />
-                <span className="text-sm font-medium">{user?.name || 'Admin'}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </button>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Welcome Card */}
+        <div className="bg-white shadow rounded-lg p-6 mb-8">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 bg-blue-100 p-3 rounded-lg">
+              <BarChart2 className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="ml-4">
+              <h2 className="text-xl font-semibold text-gray-900">Welcome back, {user?.name || 'Admin'}</h2>
+              <p className="text-gray-600">Manage your team's schedules, shifts, and employee information in one place.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          {/* Total Employees Card */}
+          <div className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-indigo-100 p-3 rounded-md">
+                  <Users className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Employees</dt>
+                    <dd className="flex items-baseline">
+                      <div className="text-2xl font-semibold text-gray-900">{stats.totalEmployees}</div>
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Shifts Card */}
+          <div className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-green-100 p-3 rounded-md">
+                  <Clock className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Shifts</dt>
+                    <dd className="flex items-baseline">
+                      <div className="text-2xl font-semibold text-gray-900">{stats.totalShifts}</div>
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Employees Card */}
+          <div className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-amber-100 p-3 rounded-md">
+                  <User className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Active Employees</dt>
+                    <dd className="flex items-baseline">
+                      <div className="text-2xl font-semibold text-gray-900">{stats.activeEmployees}</div>
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Hours Card */}
+          <div className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-purple-100 p-3 rounded-md">
+                  <ClockIcon className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Hours</dt>
+                    <dd className="flex items-baseline">
+                      <div className="text-2xl font-semibold text-gray-900">{stats.totalHours}</div>
+                      <span className="ml-2 text-sm text-gray-500">hours</span>
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tabs */}
         {renderTabs()}
 
@@ -494,6 +491,15 @@ const AdminDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
                 <p className="text-sm text-gray-500">View and manage all employees</p>
               </div>
+              <button
+                onClick={() => {
+                  // Handle add employee
+                }}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Employee
+              </button>
             </div>
             {renderEmployeeList()}
           </div>
@@ -507,7 +513,7 @@ const AdminDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Shift Management</h2>
                 <p className="text-sm text-gray-500">View and manage all shifts</p>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-gray-400" />
@@ -515,117 +521,161 @@ const AdminDashboard = () => {
                   <input
                     type="text"
                     placeholder="Search shifts..."
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
+                </div>
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  >
+                    <Filter className="h-4 w-4 mr-2 text-gray-500" />
+                    Filter
+                  </button>
+                  {isFilterOpen && (
+                    <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                      <div className="py-1" role="menu" aria-orientation="vertical">
+                        <button
+                          onClick={() => {
+                            setActiveFilter('all');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`${
+                            activeFilter === 'all' ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                          } block w-full text-left px-4 py-2 text-sm`}
+                        >
+                          All Shifts
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveFilter('today');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`${
+                            activeFilter === 'today' ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                          } block w-full text-left px-4 py-2 text-sm`}
+                        >
+                          Today's Shifts
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveFilter('upcoming');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`${
+                            activeFilter === 'upcoming' ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                          } block w-full text-left px-4 py-2 text-sm`}
+                        >
+                          Upcoming Shifts
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveFilter('past');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`${
+                            activeFilter === 'past' ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                          } block w-full text-left px-4 py-2 text-sm`}
+                        >
+                          Past Shifts
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => {
                     resetForm();
                     setIsModalOpen(true);
                   }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#021189] hover:bg-[#0a2ab5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#021189]"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  <PlusCircle className="-ml-1 mr-2 h-5 w-5" />
-                  Add Shift
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  New Shift
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {filteredShifts.map((shift) => {
-                  const shiftDate = parseISO(shift.date);
-                  const isUpcoming = isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date());
-                  
-                  return (
-                    <motion.tr 
-                      key={shift._id} 
-                      className="hover:bg-gray-50"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                            <User className="h-5 w-5 text-[#021189]" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{shift.employee.name}</div>
-                            <div className="text-xs text-gray-500">{shift.employee.employeeCode} • {shift.department || 'No Department'}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className={isToday(shiftDate) ? 'font-semibold text-[#021189]' : ''}>
-                            {formatDisplayDate(shift.date)}
-                            {isToday(shiftDate) && (
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-[#021189] rounded-full">
-                                Today
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                          <div className="flex flex-col">
-                            <span className={`text-sm ${isUpcoming ? 'text-gray-900' : 'text-gray-500'}`}>
-                              {shift.startTime} - {shift.endTime}
+
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredShifts.length > 0 ? (
+                    filteredShifts.map((shift) => {
+                      const shiftDate = parseISO(shift.date);
+                      const isUpcoming = isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date());
+                      
+                      return (
+                        <tr key={shift._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-10 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <User className="h-5 w-5 text-indigo-600" />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{shift.employee?.name || 'N/A'}</div>
+                                <div className="text-sm text-gray-500">{shift.employee?.email || ''}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatDisplayDate(shift.date)}</div>
+                            <div className="text-sm text-gray-500">
+                              {isToday(shiftDate) ? 'Today' : isTomorrow(shiftDate) ? 'Tomorrow' : ''}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {calculateDuration(shift.startTime, shift.endTime)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              isUpcoming ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {isUpcoming ? 'Upcoming' : 'Completed'}
                             </span>
-                            {!isUpcoming && (
-                              <span className="text-xs text-gray-400">Completed</span>
-                            )}
-                          </div>
-                        </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(shift)}
+                              className="text-blue-600 hover:text-blue-900 mr-4"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(shift._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                        No shifts found. Create a new shift to get started.
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-4 font-medium rounded-full ${
-                          isUpcoming 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {calculateDuration(shift.startTime, shift.endTime)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleEdit(shift)}
-                            className="p-1.5 text-gray-500 hover:text-[#021189] hover:bg-blue-50 rounded-full transition-colors"
-                            title="Edit shift"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(shift._id)}
-                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                            title="Delete shift"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -639,20 +689,19 @@ const AdminDashboard = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}
           >
             <motion.div 
               className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 500 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
               <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">
                   {editingShift ? 'Edit Shift' : 'Schedule New Shift'}
                 </h3>
-                <button 
+                <button
                   onClick={() => {
                     setIsModalOpen(false);
                     resetForm();
@@ -663,10 +712,7 @@ const AdminDashboard = () => {
                 </button>
               </div>
               
-              <form onSubmit={(e) => {
-                console.log('Form submitted');
-                handleSubmit(e);
-              }} className="p-6">
+              <form onSubmit={handleSubmit} className="p-6">
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>
@@ -675,111 +721,72 @@ const AdminDashboard = () => {
                         name="employee"
                         value={formData.employee}
                         onChange={handleInputChange}
-                        className={`w-full pl-3 pr-10 py-2.5 border ${
-                          formErrors.employee ? 'border-red-300' : 'border-gray-300'
-                        } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                        className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         required
                       >
-                        <option value="">Select Employee</option>
-                        {employees.map(emp => (
+                        <option value="">Select an employee</option>
+                        {employees.map((emp) => (
                           <option key={emp._id} value={emp._id}>
-                            {emp.name} ({emp.employeeCode})
+                            {emp.name}
                           </option>
                         ))}
                       </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400" />
-                      </div>
                     </div>
-                    {formErrors.employee && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.employee}</p>
-                    )}
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
                     <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Calendar className="h-5 w-5 text-gray-400" />
+                      </div>
                       <input
                         type="date"
                         name="date"
                         value={formData.date}
                         onChange={handleInputChange}
-                        className={`w-full pl-3 pr-10 py-2.5 border ${
-                          formErrors.date ? 'border-red-300' : 'border-gray-300'
-                        } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
+                        min={format(new Date(), 'yyyy-MM-dd')}
                       />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                      </div>
                     </div>
-                    {formErrors.date && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.date}</p>
-                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Time</label>
                       <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Clock className="h-5 w-5 text-gray-400" />
+                        </div>
                         <input
                           type="time"
                           name="startTime"
                           value={formData.startTime}
                           onChange={handleInputChange}
-                          className={`w-full pl-3 pr-10 py-2.5 border ${
-                            formErrors.startTime ? 'border-red-300' : 'border-gray-300'
-                          } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
                         />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <Clock className="h-5 w-5 text-gray-400" />
-                        </div>
                       </div>
-                      {formErrors.startTime && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.startTime}</p>
-                      )}
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">End Time</label>
                       <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Clock className="h-5 w-5 text-gray-400" />
+                        </div>
                         <input
                           type="time"
                           name="endTime"
                           value={formData.endTime}
                           onChange={handleInputChange}
-                          className={`w-full pl-3 pr-10 py-2.5 border ${
-                            formErrors.endTime ? 'border-red-300' : 'border-gray-300'
-                          } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           required
                         />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <Clock className="h-5 w-5 text-gray-400" />
-                        </div>
                       </div>
-                      {formErrors.endTime && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.endTime}</p>
-                      )}
                     </div>
                   </div>
-                  
-                  {Object.keys(formErrors).length > 0 && !formErrors.employee && !formErrors.date && !formErrors.startTime && !formErrors.endTime && (
-                    <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm text-red-700">
-                            {Object.values(formErrors)[0]}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 
                 <div className="mt-6 flex justify-end space-x-3">
@@ -789,15 +796,15 @@ const AdminDashboard = () => {
                       setIsModalOpen(false);
                       resetForm();
                     }}
-                    className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2.5 text-sm font-medium text-white bg-[#021189] rounded-lg hover:bg-[#0a2ab5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#021189] transition-colors"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
-                    {editingShift ? 'Update Shift' : 'Schedule Shift'}
+                    {editingShift ? 'Update Shift' : 'Create Shift'}
                   </button>
                 </div>
               </form>
