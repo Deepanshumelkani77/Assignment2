@@ -54,9 +54,18 @@ const LoginForm = () => {
         return false;
       }
       
-      if (!isAdmin && (!employeeCode || !department)) {
-        setError('Employee code and department are required');
-        return false;
+      if (!isAdmin) {
+        if (!employeeCode || !department) {
+          setError('Employee code and department are required');
+          return false;
+        }
+        
+        // Validate employee code format (EMP followed by 5 digits)
+        const empCodeRegex = /^EMP\d{5}$/;
+        if (!empCodeRegex.test(employeeCode)) {
+          setError('Employee code must be in the format EMP followed by 5 digits (e.g., EMP12345)');
+          return false;
+        }
       }
       
       if (password.length < 6) {

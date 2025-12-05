@@ -145,6 +145,29 @@ const AdminDashboard = () => {
       return;
     }
     
+    // Check if the selected date is in the past
+    const selectedDate = new Date(formData.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    
+    if (selectedDate < today) {
+      toast.error('Cannot schedule shifts for past dates');
+      return;
+    }
+    
+    // If it's today, check the time
+    if (selectedDate.getTime() === today.getTime()) {
+      const now = new Date();
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const startTime = new Date();
+      startTime.setHours(startHours, startMinutes, 0, 0);
+      
+      if (startTime < now) {
+        toast.error('Cannot schedule shifts in the past. Please select a future time.');
+        return;
+      }
+    }
+    
     try {
       // Format times to 12-hour format with AM/PM
       const formattedStartTime = formatTimeTo12Hour(formData.startTime);
@@ -220,11 +243,26 @@ const AdminDashboard = () => {
         status: error.response?.status
       });
       
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || 'An error occurred while saving the shift';
+      let errorMessage = 'An error occurred while saving the shift';
       
-      toast.error(errorMessage);
+      // Handle validation errors from backend
+      if (error.response?.data?.error) {
+        // Handle validation error object
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        // Handle direct error message
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        // Fallback to error message
+        errorMessage = error.message;
+      }
+      
+      // Show error in toast
+      toast.error(errorMessage, {
+        autoClose: 5000,
+        closeOnClick: true,
+        pauseOnHover: true
+      });
     }
   };
 
