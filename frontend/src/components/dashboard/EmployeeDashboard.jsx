@@ -134,7 +134,7 @@ const EmployeeDashboard = () => {
                   {isToday ? 'Today' : formatDate(shift.date).split(',')[0]}
                 </span>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">
+              <h3 className="text-lg lg:text-2xl font-bold text-gray-800 mb-1">
                 {shift.department || 'Shift'}
               </h3>
               <div className="flex items-center text-gray-600 text-sm">
@@ -254,8 +254,8 @@ const EmployeeDashboard = () => {
                   </p>
                 </div>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">Total Shifts</h3>
-              <p className="text-sm text-gray-500">All your scheduled shifts</p>
+              <h3 className="text-lg lg:text-2xl font-bold text-gray-800 mb-1">Total Shifts</h3>
+              <p className="text-sm lg:text-xl text-gray-500">All your scheduled shifts</p>
               <div className="mt-3 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full" style={{ width: '100%' }}></div>
               </div>
@@ -275,8 +275,8 @@ const EmployeeDashboard = () => {
                   </p>
                 </div>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">Total Hours</h3>
-              <p className="text-sm text-gray-500">Hours worked this month</p>
+              <h3 className="text-lg lg:text-2xl font-bold text-gray-800 mb-1">Total Hours</h3>
+              <p className="text-sm lg:text-xl text-gray-500">Hours worked this month</p>
               <div className="mt-3 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full" style={{ width: '75%' }}></div>
               </div>
@@ -296,8 +296,8 @@ const EmployeeDashboard = () => {
                   </p>
                 </div>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">Upcoming</h3>
-              <p className="text-sm text-gray-500">Shifts scheduled</p>
+              <h3 className="text-lg lg:text-2xl font-bold text-gray-800 mb-1">Upcoming</h3>
+              <p className="text-sm lg:text-xl text-gray-500">Shifts scheduled</p>
               <div className="mt-3 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-violet-400 to-purple-400 rounded-full" style={{ width: '50%' }}></div>
               </div>
@@ -310,8 +310,8 @@ const EmployeeDashboard = () => {
           {/* Upcoming Shifts */}
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Upcoming Shifts</h2>
-              <p className="text-sm text-gray-500">Your scheduled shifts</p>
+              <h2 className="text-lg lg:text-3xl font-semibold text-gray-800">Upcoming Shifts</h2>
+              <p className="text-sm lg:text-xl text-gray-500">Your scheduled shifts</p>
             </div>
             <div className="p-6">
               {upcomingShifts.length > 0 ? (
@@ -321,7 +321,7 @@ const EmployeeDashboard = () => {
               ) : (
                 <div className="text-center py-8">
                   <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-700 mb-1">No upcoming shifts</h3>
+                  <h3 className="text-lg lg:text-2xl font-medium text-gray-700 mb-1">No upcoming shifts</h3>
                   <p className="text-gray-500">You don't have any shifts scheduled yet.</p>
                 </div>
               )}
@@ -331,8 +331,8 @@ const EmployeeDashboard = () => {
           {/* Past Shifts */}
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Past Shifts</h2>
-              <p className="text-sm text-gray-500">Your completed shifts</p>
+              <h2 className="text-lg lg:text-3xl font-semibold text-gray-800">Past Shifts</h2>
+              <p className="text-sm lg:text-xl text-gray-500">Your completed shifts</p>
             </div>
             <div className="p-6">
               {pastShifts.length > 0 ? (
@@ -342,7 +342,7 @@ const EmployeeDashboard = () => {
               ) : (
                 <div className="text-center py-8">
                   <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-700 mb-1">No past shifts</h3>
+                  <h3 className="text-lg lg:text-2xl font-medium text-gray-700 mb-1">No past shifts</h3>
                   <p className="text-gray-500">Your shift history will appear here.</p>
                 </div>
               )}
@@ -352,7 +352,7 @@ const EmployeeDashboard = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-[#021189] via-[#0a2ab5] to-[#1a3cff] text-white mt-16 pt-12 pb-8 relative overflow-hidden">
+      <footer className="bg-[#021189] text-white mt-16 pt-12 pb-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-pink-400 to-purple-400"></div>
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-cyan-400/10 rounded-full"></div>
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-400/10 rounded-full"></div>
