@@ -167,53 +167,53 @@ const AppContextProvider = ({ children }) => {
     }
   };
 
-  // Login user with role
-  const login = async (email, password, role = 'employee') => {
+  // Login user
+  const login = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password,
-          role
-        }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || data.error?.message || 'Login failed');
+        throw new Error(data.message || 'Login failed');
       }
 
-      // Verify the role matches
-      const userData = data.data?.user || data.user;
-      if (userData.role !== role) {
-        throw new Error(`No ${role} account found with this email`);
+      // Handle different response formats
+      const token = data.token || (data.data && data.data.token);
+      const userData = data.user || (data.data && data.data.user);
+      
+      if (!token || !userData) {
+        throw new Error('Invalid response from server');
       }
-
+      
       // Store the token and user data
-      localStorage.setItem('token', data.token);
+      localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+      
       setUser(userData);
       
-      // Redirect based on user role
-      if (userData.role === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/employee/dashboard', { replace: true });
-      }
+      // Redirect based on role
+      const redirectPath = userData.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard';
+      navigate(redirectPath);
       
-      return { success: true };
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please try again.');
-      return { success: false };
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed. Please try again.');
+      // Clear any partial login state on error
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      throw error;
     } finally {
       setLoading(false);
     }

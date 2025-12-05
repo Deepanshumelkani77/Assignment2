@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 
@@ -9,7 +9,6 @@ const LoginForm = () => {
     name: '',
     email: '',
     password: '',
-    role: '',
     employeeCode: '',
     department: ''
   });
@@ -31,18 +30,17 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = location.pathname.includes('/admin');
+  const role = isAdmin ? 'admin' : 'employee';
   
-  // Set default role based on route
-  useEffect(() => {
+  // Force isLogin to true for admin users
+  const effectiveIsLogin = isAdmin ? true : isLogin;
+  
+  // Set isLogin to true by default if admin
+  React.useEffect(() => {
     if (isAdmin) {
-      setFormData(prev => ({ ...prev, role: 'admin' }));
       setIsLogin(true);
-    } else if (!formData.role) {
-      setFormData(prev => ({ ...prev, role: 'employee' }));
     }
   }, [isAdmin]);
-  
-  const effectiveIsLogin = isLogin;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,28 +51,36 @@ const LoginForm = () => {
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.role) {
-      setError('Please fill in all required fields');
-      return false;
-    }
+    const { name, email, password, employeeCode, department } = formData;
     
-    if (!isLogin) {
-      if (!formData.name) {
-        setError('Please enter your name');
+    if (isLogin) {
+      if (!email || !password) {
+        setError('Please fill in all required fields');
+        return false;
+      }
+    } else {
+      // Registration validation
+      if (!name || !email || !password) {
+        setError('Please fill in all required fields');
         return false;
       }
       
-      if (formData.role === 'employee' && (!formData.employeeCode || !formData.department)) {
-        setError('Employee code and department are required for employee accounts');
-        return false;
+      if (!isAdmin) {
+        if (!employeeCode || !department) {
+          setError('Employee code and department are required');
+          return false;
+        }
+        
+        // Validate employee code format (EMP followed by 5 digits)
+        const empCodeRegex = /^EMP\d{5}$/;
+        if (!empCodeRegex.test(employeeCode)) {
+          setError('Employee code must be in the format EMP followed by 5 digits (e.g., EMP12345)');
+          return false;
+        }
       }
-    }
-    
-    if (!isLogin && formData.role === 'employee') {
-      // Validate employee code format (EMP followed by 5 digits)
-      const empCodeRegex = /^EMP\d{5}$/;
-      if (!empCodeRegex.test(formData.employeeCode)) {
-        setError('Employee code must be in the format EMP followed by 5 digits (e.g., EMP12345)');
+      
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters long');
         return false;
       }
     }
@@ -91,23 +97,22 @@ const LoginForm = () => {
     }
     
     try {
-      const { email, password, role } = formData;
-      
-      if (isLogin) {
-        // Handle login with role
-        await login(email, password, role);
+      if (effectiveIsLogin) {
+        // Handle login
+        const { email, password } = formData;
+        await login(email, password);
       } else {
-        // Handle registration with role
-        const { name, email, password, employeeCode, department, role } = formData;
+        // Handle registration
+        const { name, email, password, employeeCode, department } = formData;
         const result = await register(
           { 
             name,
             email,
             password,
-            role,
-            ...(role === 'employee' && { employeeCode, department })
+            employeeCode,
+            department
           },
-          role
+          isAdmin ? 'admin' : 'employee'
         );
         
         if (result.success) {
@@ -141,7 +146,7 @@ const LoginForm = () => {
             ESB
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {isLogin ? `Welcome Back` : `Create Account`}
+            {isLogin ? `Welcome Back, ${role}` : `Create ${role} Account`}
           </h1>
           <p className="text-gray-600">
             {isLogin 
@@ -156,7 +161,6 @@ const LoginForm = () => {
           {!isAdmin ? (
             <div className="grid grid-cols-2 bg-gray-50">
               <button
-                type="button"
                 onClick={() => setIsLogin(true)}
                 className={`py-4 font-medium text-sm ${
                   isLogin 
@@ -167,7 +171,6 @@ const LoginForm = () => {
                 Sign In
               </button>
               <button
-                type="button"
                 onClick={() => setIsLogin(false)}
                 className={`py-4 font-medium text-sm ${
                   !isLogin 
@@ -192,95 +195,61 @@ const LoginForm = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {!isLogin && (
-                <div className="space-y-4">
-                  {/* Email Field */}
+              {!effectiveIsLogin && (
+                <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address
+                      Full Name
                     </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="you@example.com"
-                      required
-                    />
-                  </div>
-
-                  {/* Role Selection (only show on signup and not for admin) */}
-                  {!isLogin && !isAdmin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Account Type
-                      </label>
-                      <select
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">Select account type</option>
-                        <option value="admin">Admin</option>
-                        <option value="employee">Employee</option>
-                      </select>
-                    </div>
-                  )}
-                  {!isLogin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
-                      </label>
+                    <div className="relative">
                       <input
                         type="text"
                         name="name"
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="John Doe"
                         required
                       />
                     </div>
-                  )}
-                  {!isLogin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Employee Code
-                      </label>
-                      <input
-                        type="text"
-                        name="employeeCode"
-                        value={formData.employeeCode}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="EMP12345"
-                        required
-                      />
-                    </div>
-                  )}
-                  {!isLogin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Department
-                      </label>
-                      <select
-                        name="department"
-                        value={formData.department}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white"
-                        required
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((dept) => (
-                          <option key={dept} value={dept}>
-                            {dept}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  </div>
+
+                  {!isAdmin && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employee Code
+                        </label>
+                        <input
+                          type="text"
+                          name="employeeCode"
+                          value={formData.employeeCode}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          placeholder="EMP12345"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Department
+                        </label>
+                        <select
+                          name="department"
+                          value={formData.department}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white"
+                          required
+                        >
+                          <option value="">Select Department</option>
+                          {departments.map((dept) => (
+                            <option key={dept} value={dept}>
+                              {dept}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -354,7 +323,7 @@ const LoginForm = () => {
                       </svg>
                       Processing...
                     </span>
-                  ) : isLogin ? 'Sign In' : 'Create Account'}
+                  ) : effectiveIsLogin ? 'Sign In' : 'Create Account'}
                 </button>
               </div>
             </form>
@@ -364,26 +333,13 @@ const LoginForm = () => {
         {!isAdmin && (
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+              {effectiveIsLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
               <button
                 type="button"
-                onClick={() => {
-                  const newIsLogin = !isLogin;
-                  setIsLogin(newIsLogin);
-                  // Reset form when toggling between login/signup
-                  setFormData(prev => ({
-                    ...prev,
-                    name: '',
-                    password: '',
-                    employeeCode: '',
-                    department: '',
-                    // Keep the role when toggling
-                    role: newIsLogin ? prev.role : 'employee'
-                  }));
-                }}
+                onClick={() => setIsLogin(!effectiveIsLogin)}
                 className="font-medium text-blue-600 hover:text-blue-500"
               >
-                {isLogin ? 'Sign up' : 'Sign in'}
+                {effectiveIsLogin ? 'Sign up' : 'Sign in'}
               </button>
             </p>
           </div>

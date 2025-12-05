@@ -60,14 +60,14 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Check if user with same email and role already exists
-    const existingUser = await User.findOne({ email, role }).session(session);
+    // Check if email already exists
+    const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         status: 'error',
-        message: `User with this email already exists as ${role}`
+        message: 'Email already in use'
       });
     }
 
@@ -159,7 +159,7 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
-    const { email, password, role = 'employee' } = req.body;
+    const { email, password } = req.body;
 
     // 1) Check if email and password exist
     if (!email || !password) {
@@ -169,25 +169,17 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // 2) Check if user exists with the given email and role
-    const user = await User.findOne({ email, role }).select('+password');
+    // 2) Check if user exists && password is correct
+    const user = await User.findOne({ email }).select('+password');
 
-    if (!user) {
+    if (!user || !(await user.comparePassword(password, user.password))) {
       return res.status(401).json({
         status: 'error',
-        message: `No ${role} account found with this email`
+        message: 'Incorrect email or password'
       });
     }
 
-    // 3) Check if password is correct
-    if (!(await user.comparePassword(password, user.password))) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Incorrect password'
-      });
-    }
-
-    // 4) If everything ok, send token to client
+    // 3) If everything ok, send token to client
     createSendToken(user, 200, res);
   } catch (error) {
     res.status(400).json({
