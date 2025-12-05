@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'http://localhost:7000';
+const API_URL = 'https://assignment2-t9he.onrender.com';
 
 export const AppContext = createContext();
 
