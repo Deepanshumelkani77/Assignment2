@@ -134,15 +134,119 @@ const AdminDashboard = () => {
     return `${hour}:${minutes.padStart(2, '0')} ${period}`;
   };
 
+  // Helper function to convert 24h time to 12h format with AM/PM
+  const convertTo12HourFormat = (time24) => {
+    if (!time24) return '';
+    
+    // Handle case if already in 12h format
+    const timeStr = time24.toString().trim().toLowerCase();
+    if (timeStr.includes('am') || timeStr.includes('pm')) {
+      // If already in 12h format, just ensure consistent formatting
+      const [timePart, period] = timeStr.split(' ');
+      const [hours, minutes = '00'] = timePart.split(':');
+      const hour = parseInt(hours, 10);
+      return `${hour}:${minutes.padStart(2, '0')} ${period.toUpperCase()}`;
+    }
+    
+    // Handle 24h format
+    const [hours, minutes = '00'] = time24.split(':');
+    let period = 'AM';
+    let hour = parseInt(hours, 10);
+    
+    if (hour >= 12) {
+      period = 'PM';
+      if (hour > 12) hour -= 12;
+    }
+    if (hour === 0) hour = 12;
+    
+    return `${hour}:${minutes.padStart(2, '0')} ${period}`;
+  };
+
+  // Check for overlapping shifts
+  const hasOverlappingShift = (employeeId, date, startTime, endTime, excludeShiftId = null) => {
+    return shifts.some(shift => {
+      // Skip the shift we're editing
+      if (excludeShiftId && shift._id === excludeShiftId) return false;
+      
+      // Check if same employee and same date
+      if (shift.employee?._id === employeeId && shift.date === date) {
+        const existingStart = convertTimeToMinutes(shift.startTime);
+        const existingEnd = convertTimeToMinutes(shift.endTime);
+        const newStart = convertTimeToMinutes(startTime);
+        const newEnd = convertTimeToMinutes(endTime);
+        
+        // Check for overlap
+        return (newStart < existingEnd && newEnd > existingStart);
+      }
+      return false;
+    });
+  };
+
+  // Helper to convert time string to minutes since midnight
+  const convertTimeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    
+    // Clean up the time string
+    const time = timeStr.toString().trim().toLowerCase();
+    
+    // Extract hours, minutes, and period
+    let [timePart, period] = time.split(' ');
+    if (!period) {
+      // If no AM/PM specified, check if it's in 12h format without space (e.g., "9:00am")
+      if (time.includes('am') || time.includes('pm')) {
+        period = time.includes('am') ? 'am' : 'pm';
+        timePart = time.replace(/[^0-9:]/g, '');
+      }
+    } else {
+      // Clean up the time part if it has AM/PM with space
+      timePart = timePart.replace(/[^0-9:]/g, '');
+    }
+    
+    let [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Handle 12-hour format
+    if (period) {
+      if (period === 'pm' && hours < 12) hours += 12;
+      if (period === 'am' && hours === 12) hours = 0;
+    }
+    
+    // Ensure minutes are within valid range
+    minutes = Math.min(59, Math.max(0, minutes || 0));
+    
+    return hours * 60 + minutes;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
+      // Convert time format before sending to backend
+      const formattedStartTime = convertTo12HourFormat(formData.startTime);
+      const formattedEndTime = convertTo12HourFormat(formData.endTime);
+      
+      // Check for overlapping shifts before submitting
+      if (hasOverlappingShift(
+        formData.employee, 
+        formData.date, 
+        formattedStartTime, 
+        formattedEndTime,
+        editingShift?._id
+      )) {
+        toast.error('This shift overlaps with an existing shift for the selected employee');
+        return;
+      }
+      
+      const formattedData = {
+        ...formData,
+        startTime: formattedStartTime,
+        endTime: formattedEndTime
+      };
+      
       if (editingShift) {
-        await api.put(`http://localhost:7000/api/v1/shifts/${editingShift._id}`, formData);
+        await api.put(`http://localhost:7000/api/v1/shifts/${editingShift._id}`, formattedData);
         toast.success('Shift updated successfully');
       } else {
-        await api.post('http://localhost:7000/api/v1/shifts', formData);
+        await api.post('http://localhost:7000/api/v1/shifts', formattedData);
         toast.success('Shift created successfully');
       }
       
@@ -491,7 +595,7 @@ const AdminDashboard = () => {
                 <h2 className="text-lg font-semibold text-gray-900">Employee Management</h2>
                 <p className="text-sm text-gray-500">View and manage all employees</p>
               </div>
-              <button
+              {/* <button
                 onClick={() => {
                   // Handle add employee
                 }}
@@ -499,7 +603,7 @@ const AdminDashboard = () => {
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Employee
-              </button>
+              </button> */}
             </div>
             {renderEmployeeList()}
           </div>
@@ -685,7 +789,7 @@ const AdminDashboard = () => {
       <AnimatePresence>
         {isModalOpen && (
           <motion.div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/70 bg-opacity-50 flex items-center justify-center p-4 z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

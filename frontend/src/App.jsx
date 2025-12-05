@@ -1,5 +1,7 @@
 import React, { useContext } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import RoleSelection from './components/auth/RoleSelection';
 import LoginForm from './components/auth/LoginForm';
 import AdminDashboard from './components/dashboard/AdminDashboard';
@@ -28,7 +30,18 @@ const App = () => {
   }
   
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-100">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<RoleSelection />} />
