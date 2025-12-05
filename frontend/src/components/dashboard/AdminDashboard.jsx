@@ -82,7 +82,7 @@ const AdminDashboard = () => {
         ]);
         
         setShifts(shiftsRes.data.data.shifts || []);
-        setEmployees(employeesRes.data.data.users || []);
+        setEmployees(employeesRes.data.data.employees || []);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load data. Please try again.');
@@ -153,7 +153,7 @@ const AdminDashboard = () => {
       ]);
       
       setShifts(shiftsRes.data.data.shifts || []);
-      setEmployees(employeesRes.data.data.users || []);
+      setEmployees(employeesRes.data.data.employees || []);
       
       // Close modal and reset form
       setIsModalOpen(false);
@@ -363,7 +363,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <div className="max-w-8xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             <p className="text-sm text-gray-500">Manage your team's schedules and shifts</p>
@@ -386,7 +386,7 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Welcome Card */}
         <div className="bg-white shadow rounded-lg p-6 mb-8">
           <div className="flex items-center">
