@@ -75,13 +75,49 @@ const AdminDashboard = () => {
     try {
       setIsEmployeesLoading(true);
       setEmployeesError(null);
-      const response = await axios.get('/api/v1/users/employees');
-      const employeesData = response?.data?.data?.employees || [];
-      setEmployees(employeesData);
+      const token = localStorage.getItem('token');
+      const apiUrl = 'http://localhost:7000/api/v1/users/employees';
+      console.log('Fetching employees from:', apiUrl);
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      console.log('Raw API response:', response.data);
+      
+      // Handle different response formats
+      let employeesData = [];
+      if (Array.isArray(response?.data?.data)) {
+        employeesData = response.data.data;
+      } else if (response?.data?.data?.employees) {
+        employeesData = response.data.data.employees;
+      } else if (Array.isArray(response?.data)) {
+        employeesData = response.data;
+      }
+      
+      console.log('Processed employees data:', employeesData);
+      
+      if (employeesData.length === 0) {
+        console.warn('No employees found in the database. Please add employee accounts first.');
+        setEmployeesError('No employees found. Please add employee accounts first.');
+      } else {
+        setEmployees(employeesData);
+      }
+      
       return employeesData;
     } catch (error) {
       console.error('Error fetching employees:', error);
-      setEmployeesError('Failed to load employees. Please try again.');
+      console.error('Error response:', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || 'Failed to load employees. Please check your connection and try again.';
+      setEmployeesError(errorMsg);
       setEmployees([]);
       return [];
     } finally {

@@ -26,12 +26,12 @@ exports.getAllEmployees = catchAsync(async (req, res, next) => {
   const employees = await User.find({ role: 'employee' })
     .select('-password -__v -createdAt -updatedAt');
 
+  // Return the employees array directly in data property
+  // to match the frontend's expectation
   res.status(200).json({
     status: 'success',
     results: employees.length,
-    data: {
-      employees
-    }
+    data: employees  // Changed from { employees } to just employees
   });
 });
 
