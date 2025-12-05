@@ -251,17 +251,26 @@ exports.getAllShifts = catchAsync(async (req, res, next) => {
 // @route   GET /api/v1/shifts/my-shifts
 // @access  Private/Employee
 exports.getMyShifts = catchAsync(async (req, res, next) => {
-  const shifts = await Shift.find({ employee: req.user.id })
-    .sort('-date')
-    .populate('employee', 'name employeeCode department');
-
-  res.status(200).json({
-    status: 'success',
-    results: shifts.length,
-    data: {
-      shifts
-    }
-  });
+  try {
+    console.log('Fetching shifts for user:', req.user.id);
+    
+    const shifts = await Shift.find({ employee: req.user.id })
+      .sort('-date')
+      .populate('employee', 'name email employeeCode department');
+    
+    console.log('Found shifts:', shifts.length);
+    
+    res.status(200).json({
+      status: 'success',
+      results: shifts.length,
+      data: {
+        shifts
+      }
+    });
+  } catch (error) {
+    console.error('Error in getMyShifts:', error);
+    next(new AppError('Error fetching shifts', 500));
+  }
 });
 
 // @desc    Get a single shift

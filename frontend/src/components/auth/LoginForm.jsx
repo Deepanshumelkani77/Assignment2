@@ -12,6 +12,19 @@ const LoginForm = () => {
     employeeCode: '',
     department: ''
   });
+
+  const departments = [
+    'Sales',
+    'Marketing',
+    'IT',
+    'Human Resources',
+    'Finance',
+    'Operations',
+    'Customer Service',
+    'Research and Development',
+    'Product Management',
+    'Other'
+  ];
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -195,15 +208,20 @@ const LoginForm = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Department
                         </label>
-                        <input
-                          type="text"
+                        <select
                           name="department"
                           value={formData.department}
                           onChange={handleChange}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                          placeholder="e.g., Engineering, HR"
+                          className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white"
                           required
-                        />
+                        >
+                          <option value="">Select Department</option>
+                          {departments.map((dept) => (
+                            <option key={dept} value={dept}>
+                              {dept}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </>
                   )}

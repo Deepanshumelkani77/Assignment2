@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Calendar, Clock, User, Clock as ClockIcon, LogOut } from 'react-feather';
 import { AppContext } from '../../context/AppContext';
-import axios from 'axios';
+import api from '../../utils/api';
 
 const EmployeeDashboard = () => {
   const { user, logout } = useContext(AppContext);
@@ -23,7 +23,7 @@ const EmployeeDashboard = () => {
   useEffect(() => {
     const fetchShifts = async () => {
       try {
-        const response = await axios.get('/api/v1/shifts/my-shifts');
+        const response = await api.get('/api/v1/shifts/my-shifts');
         const shiftsData = response?.data?.data?.shifts || [];
         
         if (!Array.isArray(shiftsData)) {
