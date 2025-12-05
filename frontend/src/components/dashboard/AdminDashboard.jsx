@@ -13,8 +13,6 @@ const AdminDashboard = () => {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEmployeesLoading, setIsEmployeesLoading] = useState(false);
-  const [employeesError, setEmployeesError] = useState(null);
   const [editingShift, setEditingShift] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -30,30 +28,18 @@ const AdminDashboard = () => {
   
   const [formErrors, setFormErrors] = useState({});
   
-  // Stats state
-  const [stats, setStats] = useState({
-    totalShifts: 0,
-    activeEmployees: 0,
-    upcomingShifts: 0,
-    totalHours: 0
-  });
-
-  // Update stats when shifts change
-  useEffect(() => {
-    if (shifts.length > 0) {
-      setStats(prev => ({
-        ...prev,
-        totalShifts: shifts.length,
-        upcomingShifts: shifts.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date())).length,
-        totalHours: shifts.reduce((acc, shift) => {
-          const [startH, startM] = shift.startTime.split(':').map(Number);
-          const [endH, endM] = shift.endTime.split(':').map(Number);
-          const hours = (endH + endM/60) - (startH + startM/60);
-          return acc + (hours > 0 ? hours : 0);
-        }, 0).toFixed(1)
-      }));
-    }
-  }, [shifts]);
+  // Stats calculation
+  const stats = {
+    totalShifts: shifts.length,
+    activeEmployees: new Set(shifts.map(shift => shift.employee?._id)).size || 0,
+    upcomingShifts: shifts.filter(shift => isAfter(parseISO(`${shift.date}T${shift.endTime}`), new Date())).length,
+    totalHours: shifts.reduce((acc, shift) => {
+      const [startH, startM] = shift.startTime.split(':').map(Number);
+      const [endH, endM] = shift.endTime.split(':').map(Number);
+      const hours = (endH + endM/60) - (startH + startM/60);
+      return acc + (hours > 0 ? hours : 0);
+    }, 0).toFixed(1)
+  };
   
   // Reset form to default values
   const resetForm = () => {
@@ -70,86 +56,27 @@ const AdminDashboard = () => {
     logout();
   };
 
-  // Fetch employees with loading and error states
-  const fetchEmployees = async () => {
-    try {
-      setIsEmployeesLoading(true);
-      setEmployeesError(null);
-      const token = localStorage.getItem('token');
-      const apiUrl = 'http://localhost:7000/api/v1/users/employees';
-      console.log('Fetching employees from:', apiUrl);
-      
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.get(apiUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      });
-      
-      console.log('Raw API response:', response.data);
-      
-      // Handle different response formats
-      let employeesData = [];
-      if (Array.isArray(response?.data?.data)) {
-        employeesData = response.data.data;
-      } else if (response?.data?.data?.employees) {
-        employeesData = response.data.data.employees;
-      } else if (Array.isArray(response?.data)) {
-        employeesData = response.data;
-      }
-      
-      console.log('Processed employees data:', employeesData);
-      
-      if (employeesData.length === 0) {
-        console.warn('No employees found in the database. Please add employee accounts first.');
-        setEmployeesError('No employees found. Please add employee accounts first.');
-      } else {
-        setEmployees(employeesData);
-      }
-      
-      return employeesData;
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      console.error('Error response:', error.response?.data || error.message);
-      const errorMsg = error.response?.data?.message || 'Failed to load employees. Please check your connection and try again.';
-      setEmployeesError(errorMsg);
-      setEmployees([]);
-      return [];
-    } finally {
-      setIsEmployeesLoading(false);
-    }
-  };
-
-  // Fetch all shifts and active users count
+  // Fetch all shifts and employees
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [shiftsRes, activeUsersRes] = await Promise.all([
+        const [shiftsRes, employeesRes] = await Promise.all([
           axios.get('/api/v1/shifts'),
-          axios.get('/api/v1/users/active-count')
+          axios.get('/api/v1/users/employees')
         ]);
         
         // Add null checks for the response data
         const shiftsData = shiftsRes?.data?.data?.shifts || [];
-        const activeUsersCount = activeUsersRes?.data?.data?.activeUsers || 0;
+        const employeesData = employeesRes?.data?.data?.employees || [];
         
         setShifts(shiftsData);
-        
-        // Update stats with the correct active users count
-        setStats(prev => ({
-          ...prev,
-          activeEmployees: activeUsersCount
-        }));
+        setEmployees(employeesData);
       } catch (error) {
         console.error('Error fetching data:', error);
         // Set empty arrays on error to prevent undefined errors
         setShifts([]);
+        setEmployees([]);
         // Show error message to user
         alert('Failed to load data. Please try again later.');
       } finally {
@@ -158,7 +85,6 @@ const AdminDashboard = () => {
     };
 
     fetchData();
-    fetchEmployees();
   }, []);
 
   const handleInputChange = (e) => {
@@ -192,28 +118,15 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleEdit = async (shift) => {
-    try {
-      if (employees.length === 0) {
-        const loadedEmployees = await fetchEmployees();
-        if (loadedEmployees.length === 0) {
-          alert('Failed to load employees. Please try again.');
-          return;
-        }
-      }
-      
-      setEditingShift(shift);
-      setFormData({
-        employee: shift.employee._id,
-        date: format(new Date(shift.date), 'yyyy-MM-dd'),
-        startTime: shift.startTime,
-        endTime: shift.endTime
-      });
-      setIsModalOpen(true);
-    } catch (error) {
-      console.error('Error preparing edit form:', error);
-      alert('Failed to load shift details. Please try again.');
-    }
+  const handleEdit = (shift) => {
+    setEditingShift(shift);
+    setFormData({
+      employee: shift.employee._id,
+      date: format(new Date(shift.date), 'yyyy-MM-dd'),
+      startTime: shift.startTime,
+      endTime: shift.endTime
+    });
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (shiftId) => {
@@ -445,34 +358,14 @@ const AdminDashboard = () => {
               </div>
               
               <button
-                onClick={async (e) => {
-                  e.preventDefault();
-                  try {
-                    resetForm();
-                    if (employees.length === 0) {
-                      const loadedEmployees = await fetchEmployees();
-                      if (loadedEmployees.length === 0) {
-                        alert('Failed to load employees. Please try again.');
-                        return;
-                      }
-                    }
-                    setIsModalOpen(true);
-                  } catch (error) {
-                    console.error('Error preparing new shift form:', error);
-                    alert('Failed to prepare new shift form. Please try again.');
-                  }
+                onClick={() => {
+                  resetForm();
+                  setIsModalOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#021189] text-white rounded-lg hover:bg-[#0a2ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading || isEmployeesLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-[#021189] text-white rounded-lg hover:bg-[#0a2ab5] transition-colors"
               >
-                {isLoading || isEmployeesLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                ) : (
-                  <PlusCircle className="h-4 w-4" />
-                )}
-                <span className="text-sm font-medium">
-                  {isLoading || isEmployeesLoading ? 'Loading...' : 'Add Shift'}
-                </span>
+                <PlusCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Add Shift</span>
               </button>
             </div>
           </div>
@@ -648,49 +541,25 @@ const AdminDashboard = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>
                     <div className="relative">
-                      {isEmployeesLoading ? (
-                        <div className="flex items-center justify-center py-2.5 px-3 border border-gray-300 rounded-lg bg-gray-50">
-                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-[#021189]"></div>
-                          <span className="ml-2 text-sm text-gray-600">Loading employees...</span>
-                        </div>
-                      ) : employeesError ? (
-                        <div className="text-red-500 text-sm py-2 px-3 border border-red-200 bg-red-50 rounded-lg">
-                          {employeesError}
-                          <button 
-                            onClick={fetchEmployees}
-                            className="ml-2 text-[#021189] hover:underline"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : employees.length === 0 ? (
-                        <div className="text-yellow-600 text-sm py-2 px-3 border border-yellow-200 bg-yellow-50 rounded-lg">
-                          No employees found. Please add employees first.
-                        </div>
-                      ) : (
-                        <>
-                          <select
-                            name="employee"
-                            value={formData.employee}
-                            onChange={handleInputChange}
-                            className={`w-full pl-3 pr-10 py-2.5 border ${
-                              formErrors.employee ? 'border-red-300' : 'border-gray-300'
-                            } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
-                            required
-                            disabled={isEmployeesLoading || employees.length === 0}
-                          >
-                            <option value="">Select Employee</option>
-                            {employees.map(emp => (
-                              <option key={emp._id} value={emp._id}>
-                                {emp.name} ({emp.employeeCode || 'No ID'})
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <User className="h-5 w-5 text-gray-400" />
-                          </div>
-                        </>
-                      )}
+                      <select
+                        name="employee"
+                        value={formData.employee}
+                        onChange={handleInputChange}
+                        className={`w-full pl-3 pr-10 py-2.5 border ${
+                          formErrors.employee ? 'border-red-300' : 'border-gray-300'
+                        } rounded-lg focus:ring-2 focus:ring-[#021189] focus:border-transparent`}
+                        required
+                      >
+                        <option value="">Select Employee</option>
+                        {employees.map(emp => (
+                          <option key={emp._id} value={emp._id}>
+                            {emp.name} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
                     </div>
                     {formErrors.employee && (
                       <p className="mt-1 text-sm text-red-600">{formErrors.employee}</p>

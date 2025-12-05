@@ -11,9 +11,6 @@ router.use(auth.protect);
 // Admin-only routes
 router.use(rbac.restrictTo('admin'));
 
-// GET /api/v1/users/active-count - Get count of active employees (admin only)
-router.get('/active-count', userController.getActiveEmployeesCount);
-
 // GET /api/v1/users/employees - Get all employees (admin only)
 router.get('/employees', userController.getAllEmployees);
 
