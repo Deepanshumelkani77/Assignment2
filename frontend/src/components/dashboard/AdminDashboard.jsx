@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { PlusCircle, Trash2, Edit, Calendar, Clock, User, Search, LogOut, BarChart2, Users, Clock as ClockIcon, Filter, X } from 'react-feather';
 import { AppContext } from '../../context/AppContext';
-import axios from 'axios';
+import api from '../../utils/api';
 import { format, parseISO, isToday, isTomorrow, isThisWeek, isAfter } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
@@ -62,8 +62,8 @@ const AdminDashboard = () => {
       try {
         setIsLoading(true);
         const [shiftsRes, employeesRes] = await Promise.all([
-          axios.get('/api/v1/shifts'),
-          axios.get('/api/v1/users/employees')
+          api.get('/api/v1/shifts'),
+          api.get('/api/v1/users/employees')
         ]);
         
         // Add null checks for the response data
