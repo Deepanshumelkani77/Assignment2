@@ -108,32 +108,82 @@ const AdminDashboard = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('handleSubmit called with form data:', formData);
+    
+    // Basic validation
+    if (!formData.employee) {
+      console.log('No employee selected');
+      toast.error('Please select an employee');
+      return;
+    }
+    
     try {
       // Convert times to 12-hour format for the API
       const payload = {
-        ...formData,
+        employee: formData.employee,
+        date: formData.date,
         startTime: convertTo12Hour(formData.startTime),
         endTime: convertTo12Hour(formData.endTime)
       };
 
-      if (editingShift) {
-        // Update existing shift
-        const response = await api.patch(`http://localhost:7000/api/v1/shifts/${editingShift._id}`, payload);
-        setShifts(shifts.map(shift => 
-          shift._id === editingShift._id ? response.data.data.shift : shift
-        ));
-      } else {
-        // Create new shift
-        const response = await api.post('http://localhost:7000/api/v1/shifts', payload);
-        setShifts([...shifts, response.data.data.shift]);
+      console.log('Sending payload to API:', payload);
+      
+      let response;
+      const apiUrl = editingShift 
+        ? `http://localhost:7000/api/v1/shifts/${editingShift._id}`
+        : 'http://localhost:7000/api/v1/shifts';
+      
+      try {
+        if (editingShift) {
+          // Update existing shift
+          console.log('Updating shift with ID:', editingShift._id);
+          response = await api.patch(apiUrl, payload);
+          console.log('Update response:', response);
+          setShifts(shifts.map(shift => 
+            shift._id === editingShift._id ? response.data.data.shift : shift
+          ));
+          toast.success('Shift updated successfully!');
+        } else {
+          // Create new shift
+          console.log('Creating new shift');
+          response = await api.post(apiUrl, payload);
+          console.log('Create response:', response);
+          setShifts([...shifts, response.data.data.shift]);
+          toast.success('Shift created successfully!');
+        }
+        
+        // Close modal and reset form
+        setIsModalOpen(false);
+        resetForm();
+        
+      } catch (apiError) {
+        console.error('API Error details:', {
+          message: apiError.message,
+          response: apiError.response?.data,
+          status: apiError.response?.status,
+          headers: apiError.response?.headers,
+          config: {
+            url: apiError.config?.url,
+            method: apiError.config?.method,
+            data: apiError.config?.data,
+            headers: apiError.config?.headers
+          }
+        });
+        throw apiError; // Re-throw to be caught by the outer catch
       }
       
-      setIsModalOpen(false);
-      resetForm();
-      toast.success(editingShift ? 'Shift updated successfully!' : 'Shift created successfully!');
     } catch (error) {
-      console.error('Error saving shift:', error);
-      const errorMessage = error.response?.data?.message || 'An error occurred while saving the shift';
+      console.error('Error in handleSubmit:', {
+        error,
+        errorMessage: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'An error occurred while saving the shift';
+      
       toast.error(errorMessage);
     }
   };
@@ -535,7 +585,10 @@ const AdminDashboard = () => {
                 </button>
               </div>
               
-              <form onSubmit={handleSubmit} className="p-6">
+              <form onSubmit={(e) => {
+                console.log('Form submitted');
+                handleSubmit(e);
+              }} className="p-6">
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>

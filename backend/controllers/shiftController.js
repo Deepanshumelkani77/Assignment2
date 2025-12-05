@@ -23,6 +23,7 @@ const convertTo24Hour = (time12h) => {
 // @route   POST /api/v1/shifts
 // @access  Private/Admin
 exports.createShift = catchAsync(async (req, res, next) => {
+  console.log(req.body);
   const { employee, date, startTime, endTime } = req.body;
   
   // 1) Basic validation
