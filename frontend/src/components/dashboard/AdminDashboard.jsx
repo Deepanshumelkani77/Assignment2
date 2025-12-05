@@ -106,6 +106,34 @@ const AdminDashboard = () => {
     return `${hours12}:${minutes} ${ampm}`;
   };
 
+  // Helper function to convert 24h time to 12h format with AM/PM
+  const formatTimeTo12Hour = (time24) => {
+    if (!time24) return '';
+    
+    // Check if already in 12-hour format
+    if (time24.includes('AM') || time24.includes('PM')) {
+      return time24;
+    }
+    
+    // Ensure time is in HH:MM format
+    const [hoursStr, minutes = '00'] = time24.split(':');
+    let hours = parseInt(hoursStr, 10);
+    
+    // Handle invalid hour values
+    if (isNaN(hours) || hours < 0 || hours > 23) {
+      console.error('Invalid hour value:', hours);
+      return '12:00 PM'; // Default to noon if invalid
+    }
+    
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours || 12; // Convert 0 to 12 for 12 AM/PM
+    
+    // Ensure minutes are always 2 digits
+    const paddedMinutes = minutes.padStart(2, '0');
+    return `${hours}:${paddedMinutes} ${ampm}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('handleSubmit called with form data:', formData);
@@ -118,16 +146,18 @@ const AdminDashboard = () => {
     }
     
     try {
-      // Prepare the payload with proper time format
+      // Format times to 12-hour format with AM/PM
+      const formattedStartTime = formatTimeTo12Hour(formData.startTime);
+      const formattedEndTime = formatTimeTo12Hour(formData.endTime);
+      
+      // Prepare the payload with properly formatted times
       const payload = {
         employee: formData.employee,
         date: formData.date,
-        startTime: formData.startTime,
-        endTime: formData.endTime
+        startTime: formattedStartTime,
+        endTime: formattedEndTime
       };
       
-      console.log('Sending payload to API:', payload);
-
       console.log('Sending payload to API:', payload);
       
       let response;

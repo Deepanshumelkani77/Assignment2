@@ -23,71 +23,177 @@ const convertTo24Hour = (time12h) => {
 // @route   POST /api/v1/shifts
 // @access  Private/Admin
 exports.createShift = catchAsync(async (req, res, next) => {
-  console.log(req.body);
+  console.log('Received request to create shift with data:', req.body);
+  
   const { employee, date, startTime, endTime } = req.body;
   
-  // 1) Basic validation
-  if (!employee || !date || !startTime || !endTime) {
-    return next(new AppError('Please provide all required fields', 400));
+  // 1) Basic validation with detailed error messages
+  const missingFields = [];
+  if (!employee) missingFields.push('employee');
+  if (!date) missingFields.push('date');
+  if (!startTime) missingFields.push('startTime');
+  if (!endTime) missingFields.push('endTime');
+  
+  if (missingFields.length > 0) {
+    console.error('Missing required fields:', missingFields);
+    return next(new AppError(`Missing required fields: ${missingFields.join(', ')}`, 400));
   }
   
   // 2) Check if employee exists and is an employee
-  const employeeDoc = await User.findOne({ _id: employee, role: 'employee' });
-  if (!employeeDoc) {
-    return next(new AppError('No employee found with that ID', 404));
+  let employeeDoc;
+  try {
+    employeeDoc = await User.findOne({ _id: employee, role: 'employee' });
+    console.log('Employee found:', employeeDoc ? employeeDoc._id : 'Not found');
+    
+    if (!employeeDoc) {
+      console.error(`Employee with ID ${employee} not found or not an employee`);
+      return next(new AppError('No employee found with that ID or user is not an employee', 404));
+    }
+  } catch (error) {
+    console.error('Error finding employee:', error);
+    return next(new AppError('Error validating employee', 500));
   }
   
   // 3) Validate date format (YYYY-MM-DD)
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!date.match(dateRegex)) {
+    console.error(`Invalid date format: ${date}. Expected YYYY-MM-DD`);
     return next(new AppError('Invalid date format. Please use YYYY-MM-DD', 400));
+  }
+  
+  // Parse the date to ensure it's valid
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    console.error(`Invalid date: ${date}`);
+    return next(new AppError('Invalid date provided', 400));
   }
   
   // 4) Validate time format (HH:MM AM/PM)
   const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(?:AM|PM)$/i;
-  if (!startTime.match(timeRegex) || !endTime.match(timeRegex)) {
-    return next(new AppError('Invalid time format. Please use HH:MM AM/PM', 400));
+  
+  if (!startTime) {
+    console.error('Start time is required');
+    return next(new AppError('Start time is required', 400));
   }
   
-  // 5) Check if start time is before end time (accounting for overnight shifts)
-  const start = new Date(`1970-01-01 ${startTime}`);
-  const end = new Date(`1970-01-01 ${endTime}`);
-  const diff = (end - start) / (1000 * 60 * 60);
-  const hours = diff < 0 ? diff + 24 : diff;
-  
-  // 6) Check if shift is at least 4 hours
-  if (hours < 4) {
-    return next(new AppError('Shift must be at least 4 hours long', 400));
+  if (!endTime) {
+    console.error('End time is required');
+    return next(new AppError('End time is required', 400));
   }
   
-  // 7) Check for overlapping shifts
+  if (!startTime.match(timeRegex)) {
+    console.error(`Invalid start time format: ${startTime}. Expected HH:MM AM/PM`);
+    return next(new AppError(`Invalid start time format: ${startTime}. Please use HH:MM AM/PM`, 400));
+  }
+  
+  if (!endTime.match(timeRegex)) {
+    console.error(`Invalid end time format: ${endTime}. Expected HH:MM AM/PM`);
+    return next(new AppError(`Invalid end time format: ${endTime}. Please use HH:MM AM/PM`, 400));
+  }
+  
+  // 5) Parse times for validation
+  let start, end, hours;
   try {
+    start = new Date(`1970-01-01 ${startTime}`);
+    end = new Date(`1970-01-01 ${endTime}`);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.error('Invalid time values:', { startTime, endTime });
+      return next(new AppError('Invalid time values provided', 400));
+    }
+    
+    // 6) Calculate duration
+    let diff = (end - start) / (1000 * 60 * 60); // hours
+    hours = diff < 0 ? diff + 24 : diff; // handle overnight shifts
+    
+    console.log('Shift duration calculation:', { 
+      startTime, 
+      endTime, 
+      start: start.toISOString(), 
+      end: end.toISOString(),
+      diff,
+      hours
+    });
+    
+    // 7) Validate shift duration
+    if (hours < 4) {
+      console.error(`Shift too short: ${hours} hours`);
+      return next(new AppError('Shift must be at least 4 hours long', 400));
+    }
+    
+    if (hours > 12) {
+      console.error(`Shift too long: ${hours} hours`);
+      return next(new AppError('Shift cannot be longer than 12 hours', 400));
+    }
+  } catch (error) {
+    console.error('Error processing shift times:', error);
+    return next(new AppError('Error processing shift times', 400));
+  }
+  
+  // 8) Check for overlapping shifts
+  try {
+    console.log('Checking for overlapping shifts...');
     const hasOverlap = await Shift.hasOverlappingShift(employee, date, startTime, endTime);
+    console.log('Overlap check result:', hasOverlap);
+    
     if (hasOverlap) {
+      console.error('Shift overlaps with existing shift');
       return next(new AppError('This employee already has a shift that overlaps with the specified time', 400));
     }
   } catch (error) {
-    return next(new AppError(error.message, 400));
+    console.error('Error checking for overlapping shifts:', error);
+    return next(new AppError('Error checking for overlapping shifts: ' + error.message, 400));
   }
   
-  // 8) Create the shift
-  const shift = await Shift.create({
-    employee,
-    date,
-    startTime: startTime.toUpperCase(), // Ensure consistent case
-    endTime: endTime.toUpperCase(),     // Ensure consistent case
-    hours
-  });
-  
-  // Populate employee details in the response
-  await shift.populate('employee', 'name email employeeCode department');
-  
-  res.status(201).json({
-    status: 'success',
-    data: {
-      shift
+  // 9) Create the shift
+  try {
+    console.log('Creating shift with data:', {
+      employee,
+      date,
+      startTime: startTime.toUpperCase(),
+      endTime: endTime.toUpperCase(),
+      hours
+    });
+    
+    const shift = await Shift.create({
+      employee,
+      date,
+      startTime: startTime.toUpperCase(), // Ensure consistent case
+      endTime: endTime.toUpperCase(),     // Ensure consistent case
+      hours
+    });
+    
+    console.log('Shift created successfully:', shift._id);
+    
+    // Populate employee details in the response
+    await shift.populate('employee', 'name email employeeCode department');
+    
+    return res.status(201).json({
+      status: 'success',
+      data: {
+        shift
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error creating shift:', error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      console.error('Duplicate shift detected:', error.keyValue);
+      return next(new AppError('A shift with these details already exists', 400));
     }
-  });
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(el => el.message);
+      console.error('Validation errors:', errors);
+      return next(new AppError(`Invalid input data: ${errors.join('. ')}`, 400));
+    }
+    
+    // Handle other errors
+    return next(new AppError('Error creating shift: ' + error.message, 500));
+  }
 });
 
 // @desc    Get all shifts (admin) or employee's shifts (employee)

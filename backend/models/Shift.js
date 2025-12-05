@@ -41,11 +41,15 @@ const shiftSchema = new mongoose.Schema({
 });
 
 // Pre-save hook to validate shift duration
-shiftSchema.pre('save', function(next) {
+shiftSchema.pre('save', async function() {
   // Validate shift duration
   if (this.startTime && this.endTime) {
     const start = new Date(`1970-01-01 ${this.startTime}`);
     const end = new Date(`1970-01-01 ${this.endTime}`);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Invalid time format in shift times');
+    }
     
     // Handle overnight shifts
     let diff = (end - start) / (1000 * 60 * 60);
@@ -53,18 +57,16 @@ shiftSchema.pre('save', function(next) {
     
     // Validate minimum shift duration (4 hours)
     if (diff < 4) {
-      return next(new Error('Shift must be at least 4 hours long'));
+      throw new Error('Shift must be at least 4 hours long');
     }
     
     // Validate maximum shift duration (12 hours)
     if (diff > 12) {
-      return next(new Error('Shift cannot be longer than 12 hours'));
+      throw new Error('Shift cannot be longer than 12 hours');
     }
     
     this.hours = Math.round(diff * 10) / 10; // Round to 1 decimal place
   }
-  
-  next();
 });
 
 // Index for faster querying
